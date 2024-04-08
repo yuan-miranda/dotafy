@@ -4,27 +4,22 @@ require("dotenv").config();
 const commands = [
     {
         name: 'help',
-        description: 'Get help with the bot.',
+        description: 'Get help on how to use the bot.',
         options: []
     },
     {
-        name: 'channel',
-        description: 'List all channels that the bot is logging messages in.',
+        name: 'channels',
+        description: 'List all the channels that are registered for logging messages.',
         options: []
     },
     {
         name: 'setchannel',
-        description: 'Set the channel for logging messages. Must be on the channel you want to set. (Admin only)',
+        description: 'Set the channel for logging messages. Must be on the channel you want to set. (admin only)',
         options: []
     },
     {
         name: 'unsetchannel',
-        description: 'Unset the channel for logging messages. Must be on the channel you want to unset. (Admin only)',
-        options: []
-    },
-    {
-        name: 'list',
-        description: 'List all channels that the bot is logging messages in.',
+        description: 'Unset the channel for logging messages. Must be on the channel you want to unset. (admin only)',
         options: []
     },
     {
@@ -33,12 +28,12 @@ const commands = [
         options: [
             {
                 name: 'add',
-                description: 'Add a user',
+                description: 'Add a dota account.',
                 type: 1,
                 options: [
                     {
-                        name: 'steam_id',
-                        description: 'Steam account ID',
+                        name: 'id',
+                        description: 'Steam or Dota 2 ID. If you provide the Dota 2 ID it will be converted to Steam ID.',
                         type: 3,
                         required: true
                     }
@@ -46,12 +41,12 @@ const commands = [
             },
             {
                 name: 'remove',
-                description: 'Remove a user',
+                description: 'Remove a dota account.',
                 type: 1,
                 options: [
                     {
-                        name: 'steam_id',
-                        description: 'Steam account ID',
+                        name: 'id',
+                        description: 'Steam or Dota 2 ID to remove. If you provide the Dota 2 ID it will be converted to Steam ID.',
                         type: 3,
                         required: true
                     }
@@ -59,7 +54,7 @@ const commands = [
             },
             {
                 name: 'list',
-                description: 'List all registered users',
+                description: 'List all the dota accounts registered.',
                 type: 1,
                 options: []
             }
