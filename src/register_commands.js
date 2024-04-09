@@ -15,7 +15,37 @@ const commands = [
     {
         name: 'setchannel',
         description: 'Set the channel for logging messages. Must be on the channel you want to set. (admin only)',
-        options: []
+        type: 1,
+        options: [
+            {
+                name: 'type',
+                description: 'Type of the channel to set as.',
+                type: 3,
+                required: true,
+                choices: [
+                    {
+                        name: 'All bot messages',
+                        value: 'all'
+                    },
+                    {
+                        name: 'auto /day',
+                        value: 'day'
+                    },
+                    {
+                        name: 'auto /week',
+                        value: 'week'
+                    },
+                    {
+                        name: 'auto /month',
+                        value: 'month'
+                    },
+                    {
+                        name: 'auto /year',
+                        value: 'year'
+                    }
+                ]
+            }
+        ]
     },
     {
         name: 'unsetchannel',
