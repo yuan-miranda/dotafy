@@ -28,6 +28,10 @@ const commands = [
                         value: 'all'
                     },
                     {
+                        name: 'Match results channel',
+                        value: 'match'
+                    },
+                    {
                         name: 'auto /day',
                         value: 'day'
                     },

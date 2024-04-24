@@ -2,34 +2,9 @@ const fs = require("fs");
 const axios = require("axios");
 require("dotenv").config();
 
-let lastMatchIdArray = [];
+let lastMatchId = {};
 let dota2Heroes = {};
-
-let gameModes = {
-    0: "Unknown",
-    1: "All Pick",
-    2: "Captains Mode",
-    3: "Random Draft",
-    4: "Single Draft",
-    5: "All Random",
-    6: "Intro",
-    7: "Diretide",
-    8: "Reverse Captains Mode",
-    9: "Greeviling",
-    10: "Tutorial",
-    11: "Mid Only",
-    12: "Least Played",
-    13: "New Player Pool",
-    14: "Compendium Matchmaking",
-    15: "Custom",
-    16: "Captains Draft",
-    17: "Balanced Draft",
-    18: "Ability Draft",
-    19: "Event",
-    20: "All Random Death Match",
-    21: "1v1 Mid",
-    22: "All Draft"
-};
+let gameModes = {};
 
 function isMatchHistoryPublic(matchData) {
     return matchData.result.status !== 15; // match history is private.
@@ -41,10 +16,8 @@ async function getLastMatchHistory(steamId) {
         const recentMatch = JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`));
         return recentMatch;
     }
-    else if (await isSteamIdValid(steamId)) {
-        const recentMatch = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=1`);
-        return recentMatch.data;
-    }
+    const recentMatch = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=1`);
+    return recentMatch.data;
 }
 
 // check if the steam id is valid.
@@ -53,7 +26,6 @@ async function isSteamIdValid(steamId){
     const response = await axios.get(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${process.env.STEAM_API_KEY}&steamids=${steamId}`);
 
     if (response.data.response.players.length === 0) return false;
-
     fs.writeFileSync(`./data/api_fetched/GPS${steamId}.json`, JSON.stringify(response.data, null, 4));
     return true;
 }
@@ -79,10 +51,20 @@ function loadWhereSteamIdRegistered(steamId) {
 }
 
 // laod all the registered channels of the server specified.
-function loadRegisteredChannelsOf(serverId) {
+function loadRegisteredChanneTypesOf(serverId, channelType) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredChannelIds : [];
+    return server ? server.registeredChannelIds[channelType] : [];
+}
+
+function loadAllRegisteredChannelsOf(serverId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    let allChannels = []
+
+    if (!server) return [];
+    for (let key in server.registeredChannelIds) allChannels = [...allChannels, ...server.registeredChannelIds[key]];
+    return allChannels;
 }
 
 // initialize the servers.json file.
@@ -91,29 +73,27 @@ function initalizeServerJsonFile() {
 }
 
 // register the steam id and also channels that are registered in the server specified. (if there are any)
-function registerSteamId(steamId, serverId, registeredChannels) {
+function registerSteamId(steamId, serverId) {
     let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
 
     // if the server object doesnt exist, initialize a new one.
     if (!server) {
-        servers.push({
+        server = {
             serverId: serverId,
-            registeredSteamIds: [steamId],
-            registeredChannelIds: registeredChannels
-        });
-    }
-    // if it exists, just push the steam id and the registered channels. (it doesnt include duplicates)
-    else {
-        server.registeredSteamIds.push(steamId);
-        if (registeredChannels.length > 0) {
-            for (let channelId of registeredChannels) {
-                if (!server.registeredChannelIds.includes(channelId)) {
-                    server.registeredChannelIds.push(channelId);
-                }
+            registeredSteamIds: [],
+            registeredChannelIds: {
+                all: [],
+                match: [],
+                day: [],
+                week: [],
+                month: [],
+                year: []
             }
         }
+        servers.push(server);
     }
+    server.registeredSteamIds.push(steamId);
     fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
@@ -132,122 +112,162 @@ function loadRegisteredSteamIdsOf(serverId) {
     return server ? server.registeredSteamIds : [];
 }
 
-// check if the channel is registered at the server specified.
-function isChannelRegisteredAt(serverId, channelId) {
+// load the channel type of the channel id specified.
+function loadChannelTypeOf(serverId, channelId) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredChannelIds.includes(channelId) : false;
+    return server ? Object.keys(server.registeredChannelIds).find(key => server.registeredChannelIds[key].includes(channelId)) || "" : "";
+}
+
+// check if the channel is registered at the server specified.
+function isChannelRegisteredAt(serverId, channelId, channelType) {
+    if (channelType === "") return false;
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? server.registeredChannelIds[channelType].includes(channelId) : false;
 }
 
 // register the channel id at the server specified.
-function registerChannel(channelId, serverId) {
+function registerChannel(channelId, serverId, channelType) {
     let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
 
     if (!server) {
-        servers.push({
+        server = {
             serverId: serverId,
             registeredSteamIds: [],
-            registeredChannelIds: [channelId]
-        });
+            registeredChannelIds: {
+                all: [],
+                match: [],
+                day: [],
+                week: [],
+                month: [],
+                year: []
+            }
+        }
+        servers.push(server);
     }
-    else {
-        // dont need to check if theres a duplicate, as its checked beforehand.
-        server.registeredChannelIds.push(channelId);
+    switch (channelType) {
+        case "all":
+        case "match":
+        case "day":
+        case "week":
+        case "month":
+        case "year":
+            // dont need to check if theres a duplicate, as its checked beforehand.
+            server.registeredChannelIds[channelType].push(channelId);
+            break;
     }
-
     fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // remove the registered channel of the server specified.
-function removeRegisteredChannelOf(serverId, channelId) {
+function removeRegisteredChannelOf(serverId, channelId, channelType) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
-    server.registeredChannelIds = server.registeredChannelIds.filter(id => id !== channelId);
+
+    server.registeredChannelIds[channelType] = server.registeredChannelIds[channelType].filter(id => id !== channelId);
+    // server.registeredChannelIds = server.registeredChannelIds.filter(id => id !== channelId);
     fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // send the game result in discord channels.
-async function sendMessageToChannels(registeredChannels, message) {
-    await Promise.all(registeredChannels.map(async (channelId) => { // each channel
-        const channel = await client.channels.fetch(channelId);
-        await channel.send(message);
-    }));
+async function sendMessageToChannels(channelId, message) {
+    const channel = await client.channels.fetch(channelId);
+    await channel.send(message);
 }
+
+function getTeamKDA(team) {
+    let kills = 0;
+    let deaths = 0;
+    let assists = 0;
+
+    for (let player of team) {
+        kills += player.kills;
+        deaths += player.deaths;
+        assists += player.assists;
+    }
+    return `${kills}/${deaths}/${assists}`;
+}
+
+function getTeamNet(team) {
+    let net = 0;
+
+    for (let player of team) net += player.net_worth;
+    return net;
+}
+
+function getTeamDamage(team) {
+    let damage = 0;
+
+    for (let player of team) damage += player.hero_damage;
+    return damage;
+}
+
+function getRadiantTeams(matchDetails) {
+    return matchDetails.data.result.players.filter(player => player.team_number === 0);
+}
+
+function getDireTeams(matchDetails) {
+    return matchDetails.data.result.players.filter(player => player.team_number === 1);
+}
+
 
 // send the game result of the steam id specified to the sendGameResult().
 async function sendGameResult(steamId, registeredChannels) {
-    const recentMatch = await getLastMatchHistory(steamId);
+    await Promise.all(registeredChannels.map(async (channelId) => {
+        const recentMatch = await getLastMatchHistory(steamId);
 
-    if (!isMatchHistoryPublic(recentMatch)) return;
-
-    fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(recentMatch, null, 4));
-    const matchId = recentMatch.result.matches[0].match_id;
-
-    // check if the match id is the same on the last one. this means that the match has already been logged.
-    // to prevent unnecessary api calls.
-    if (lastMatchIdArray.includes(matchId)) return;
-    lastMatchIdArray.push(matchId);
-
-    const matchDetails = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`);
-    fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails.data, null, 4));
-
-    // temporarily sending the match duration.
-    const matchDuration = matchDetails.data.result.duration;
-    const playerMatchDetails = matchDetails.data.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));
-
-    const formattedMatchDuration =  (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`;
-    const formattedKDA = `${playerMatchDetails.kills}/${playerMatchDetails.deaths}/${playerMatchDetails.assists}`
-
-
-    const gameMode = gameModes[matchDetails.data.result.game_mode];
-    const gameMatchDuration = formattedMatchDuration;
-    const gameMatchId = matchId;
-
-    const playerName = getPlayerName(steamId);
-    const playerKDA = formattedKDA;
-    const playerLevel = playerMatchDetails.level;
-    const playerHeroName = dota2Heroes[playerMatchDetails.hero_id];
-
-    // const radiantKDA;
-    // const radiantNet;
-    // const radiantDamage;
-    // const radiantIsWin;
-
-    // const direKDA;
-    // const direNet;
-    // const direDamage;
-    // const direIsWin;
-
-    const matchData = {
-        matchSummary: {
-            gameMode: gameMode,
-            gameMatchDuration: gameMatchDuration,
-            gameMatchId: gameMatchId
-        },
-        playerSummary: {
-            playerName: playerName,
-            playerKDA: playerKDA,
-            playerLevel: playerLevel,
-            playerHeroName: playerHeroName
+        if (!isMatchHistoryPublic(recentMatch)) return;
+    
+        fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(recentMatch, null, 4));
+        const matchId = recentMatch.result.matches[0].match_id;
+    
+        // check if the match has already been logged in the channel. Also to prevent unnecessary api calls.
+        if (!lastMatchId[matchId]) lastMatchId[matchId] = []
+        if (lastMatchId[matchId].includes(channelId)) return; 
+        lastMatchId[matchId] = [...lastMatchId[matchId], channelId];
+        
+        const matchDetails = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`);
+        fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails.data, null, 4));
+    
+        // temporarily sending the match duration.
+        const matchDuration = matchDetails.data.result.duration;
+        const playerMatchDetails = matchDetails.data.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));
+    
+        const formattedMatchDuration =  (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`; // lol
+        const formattedKDA = `${playerMatchDetails.kills}/${playerMatchDetails.deaths}/${playerMatchDetails.assists}`; // 0/0/0
+    
+        const matchData = {
+            matchSummary: {
+                gameMode: gameModes[matchDetails.data.result.game_mode],
+                gameMatchDuration: formattedMatchDuration,
+                gameMatchId: matchId
+            },
+            playerSummary: {
+                playerName: await getPlayerName(steamId),
+                playerKDA: formattedKDA,
+                playerLevel: playerMatchDetails.level,
+                playerHeroName: dota2Heroes[playerMatchDetails.hero_id],
+                playerTeam: playerMatchDetails.team_number === 0 ? "Radiant" : "Dire"
+            },
+            teamSummary: {
+                radiant: {
+                    radiantKDA: getTeamKDA(getRadiantTeams(matchDetails)),
+                    ragiantNet: getTeamNet(getRadiantTeams(matchDetails)),
+                    radiantDamage: getTeamDamage(getRadiantTeams(matchDetails)),
+                    radiantIsWin: matchDetails.data.result.radiant_win ? true : false
+                },
+                dire: {
+                    direKDA: getTeamKDA(getDireTeams(matchDetails)),
+                    direNet: getTeamNet(getDireTeams(matchDetails)),
+                    direDamage: getTeamDamage(getDireTeams(matchDetails)),
+                    direIsWin: !radiantIsWin
+                }
+            }
         }
-        // teamSummary: {
-        //     radiant: {
-        //         radiantKDA: "0/0/0", // getRadiantKDA()
-        //         ragiantNet: 0, // getRadiantNet()
-        //         radiantDamage: 0, // getRadiantDamage()
-        //         radiantIsWin: true // getRadiantIsWin()
-        //     },
-        //     dire: {
-        //         direKDA: "0/0/0", // getDireKDA()
-        //         direNet: 0, // getDireNet()
-        //         direDamage: 0, // getDireDamage()
-        //         direIsWin: false // getDireIsWin()
-        //     }
-        // }
-    }
-
-    sendMessageToChannels(registeredChannels, JSON.stringify(matchData, null, 4));
+        sendMessageToChannels(channelId, JSON.stringify(matchData, null, 4));
+    }));
 }
 
 async function getDota2Heroes() {
@@ -255,70 +275,16 @@ async function getDota2Heroes() {
     const heroNames = response.data.map(hero => hero.localized_name);
     let heroObjects = {};
 
-    for (let i = 0; i < heroNames.length; i++) {
-        heroObjects[i + 2] = heroNames[i]; // idk how but indexing of dota 2 heroes are 2 based.
-    }
+    for (let i = 0; i < heroNames.length; i++) heroObjects[i + 2] = heroNames[i]; // idk how but indexing of dota 2 heroes are 2 based.
     return heroObjects;
 }
 
+async function getDota2GameModes() {
+    const response = await axios.get('https://api.opendota.com/api/constants/game_mode');
+    let gameModeObjects = {};
 
-class Match {
-    constructor(gameMode, matchDuration, matchId) {
-        this.gameMode = gameMode;
-        this.matchDuration = matchDuration;
-        this.matchId = matchId;
-    }
-    getGameMode() {
-        return this.gameMode;
-    }
-    getMatchDuration() {
-        return this.matchDuration;
-    }
-    getMatchId() {
-        return this.matchId;
-    }
-}
-
-class Player {
-    constructor(name, kda, level, hero) {
-        this.name = name;
-        this.kda = kda;
-        this.level = level;
-        this.hero = hero;
-    }
-    getPlayerName() {
-        return this.name;
-    }
-    getPlayerKDA() {
-        return this.kda;
-    }
-    getPlayerLevel() {
-        return this.level;
-    }
-    getPlayerHero() {
-        return this.hero;
-    }
-}
-
-class Team {
-    constructor(kda, net, damage, isWin) {
-        this.kda = kda;
-        this.net = net;
-        this.damage = damage;
-        this.isWin = isWin;
-    }
-    getKDA() {
-        return this.kda;
-    }
-    getNet() {
-        return this.net;
-    }
-    getDamage() {
-        return this.damage;
-    }
-    getIsWin() {
-        return this.isWin;
-    }
+    for (let gameMode of Object.values(response.data)) gameModeObjects[gameMode.id] = gameMode.name.split("_").splice(2).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+    return gameModeObjects;
 }
 
 // this is essentially getting the steamId3 from the steamId - the steam64Base constant, I think dota 2 id uses steamId3. This needs a string argument.
@@ -333,9 +299,10 @@ function getStreamIdByDota2Id(dota2Id) {
     return (BigInt(dota2Id) + steam64Base).toString();
 }
 
-function getPlayerName(steamId) {
-    const response = JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`));
-    return response.response.players[0].personaname;
+async function getPlayerName(steamId) {
+    if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`)) await isSteamIdValid(steamId); // write the GetPlayerSummaries data to the file.
+    const playerData = JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`));
+    return playerData.response.players[0].personaname;
 }
 
 /* ==================================================================================================== */
@@ -354,10 +321,10 @@ const client = new Client({
 
 client.once("ready", async () => {
     console.log(`${client.user.tag} is online.`);
-    if (!fs.existsSync(`./data/server/servers.json`)) {
-        initalizeServerJsonFile();
-    }
 
+    if (!fs.existsSync(`./data/server/servers.json`)) initalizeServerJsonFile();
+
+    gameModes = await getDota2GameModes();
     dota2Heroes = await getDota2Heroes();
 
     // this fetches all the registered steam ids of all the servers.
@@ -366,16 +333,23 @@ client.once("ready", async () => {
     setInterval(async() => {
         await Promise.all(client.guilds.cache.map(async (guild) => { // each server
             const steamIds = loadRegisteredSteamIdsOf(guild.id);
-            if(steamIds.length === 0) return;
-            const registeredChannels = loadRegisteredChannelsOf(guild.id);
-            if (registeredChannels.length === 0) return;
+            const channelType = "match";
 
+            if(steamIds.length === 0) return;
+            const registeredChannels = loadRegisteredChanneTypesOf(guild.id, channelType);
+            if (registeredChannels.length === 0) return;
             await Promise.all(steamIds.map(async (steamId) => { // each steam id
                 await sendGameResult(steamId, registeredChannels);
             }));
         }));
     }, 1000 * 60 * 30); // 30 minutes
 
+    // update dota 2 game modes every 24 hours.
+    setInterval(async() => {
+        gameModes = await getDota2GameModes();
+    }, 1000 * 60 * 60 * 24); // 24 hours
+
+    // update dota 2 heroes every 24 hours.
     setInterval(async() => {
         dota2Heroes = await getDota2Heroes();
     }, 1000 * 60 * 60 * 24); // 24 hours
@@ -395,9 +369,7 @@ client.on("interactionCreate", async interaction => {
             let steamId = options.getString("id");
             const serverId = interaction.guild.id;
             
-            if (steamId.length !== 17) { // conver the dota 2 id to steam id.
-                steamId = getStreamIdByDota2Id(steamId);
-            }
+            if (steamId.length !== 17) steamId = getStreamIdByDota2Id(steamId); // convert the dota 2 id to steam id.
             if (!await isSteamIdValid(steamId)) {
                 interaction.editReply("Error: Invalid Steam ID.");
                 return;
@@ -411,8 +383,7 @@ client.on("interactionCreate", async interaction => {
                 return;
             }
 
-            const registeredChannels = loadRegisteredChannelsOf(interaction.guild.id);
-            registerSteamId(steamId, serverId, registeredChannels);
+            registerSteamId(steamId, serverId);
             interaction.followUp("Steam ID registered successfully.");
         }
         else if (subCommand === "remove") {
@@ -420,9 +391,7 @@ client.on("interactionCreate", async interaction => {
             let steamId = options.getString("id");
             const serverId = interaction.guild.id;
 
-            if (steamId.length !== 17) { // conver the dota 2 id to steam id.
-                steamId = getStreamIdByDota2Id(steamId);
-            }
+            if (steamId.length !== 17) steamId = getStreamIdByDota2Id(steamId); // conver the dota 2 id to steam id.
             if (!await isSteamIdValid(steamId)) {
                 interaction.editReply("Error: Invalid Steam ID.");
                 return;
@@ -450,16 +419,15 @@ client.on("interactionCreate", async interaction => {
                 const isHistoryPublic = isMatchHistoryPublic(await getLastMatchHistory(steamId));
                 message += `${steamId} state: ${isHistoryPublic ? "Public" : "Private"}\n`;
             }
-
-
             interaction.editReply(message);
         }
     }
     else if (commandName === "channels") {
         await interaction.deferReply();
         const serverId = interaction.guild.id;
-        const registeredChannels = loadRegisteredChannelsOf(serverId);
-        
+        channelId = interaction.channel.id;
+        const registeredChannels = loadAllRegisteredChannelsOf(serverId);
+
         if (registeredChannels.length === 0) {
             interaction.editReply("Error: No channels are registered on this server.");
             return;
@@ -474,54 +442,47 @@ client.on("interactionCreate", async interaction => {
             interaction.editReply("Error: You must be an admin to set a channel.");
             return;
         }
-        
+
+        const channelId = interaction.channel.id;
+        const serverId = interaction.guild.id;
         const channelType = options.getString("type");
+
+        if (isChannelRegisteredAt(serverId, channelId, channelType)) {
+            interaction.editReply("Error: Channel already registered.");
+            return;
+        }
+        
         switch (channelType) {
             case "all":
-                await interaction.editReply("Channel set as auto /all.");
-                break;
+            case "match":
             case "day":
-                await interaction.editReply("Channel set as auto /day.");
-                break;
             case "week":
-                await interaction.editReply("Channel set as auto /week.");
-                break;
             case "month":
-                await interaction.editReply("Channel set as auto /month.");
-                break;
             case "year":
-                await interaction.editReply("Channel set as auto /year.");
+                await interaction.editReply(`Channel set as auto /${channelType}.`);
+                registerChannel(channelId, serverId, channelType);
                 break;
             default:
                 await interaction.editReply("Error: Invalid channel type.");
                 break;
         }
-
-        
-        // const channelId = interaction.channel.id;
-        // const serverId = interaction.guild.id;
-
-
-        // if (isChannelRegisteredAt(serverId, channelId)) {
-        //     interaction.editReply("Error: Channel already registered.");
-        //     return;
-        // }
     }
     else if (commandName === "unsetchannel") {
         await interaction.deferReply();
         const channelId = interaction.channel.id;
         const serverId = interaction.guild.id;
+        const channelType = loadChannelTypeOf(serverId, channelId);
 
         if (!interaction.member.permissions.has("1221426032817733662")) {
             interaction.editReply("Error: You must be an admin to unset a channel.");
             return;
         }
-        if (!isChannelRegisteredAt(serverId, channelId)) {
+        if (!isChannelRegisteredAt(serverId, channelId, channelType)) {
             interaction.editReply("Error: Channel is not registered.");
             return;
         }
 
-        removeRegisteredChannelOf(serverId, channelId);
+        removeRegisteredChannelOf(serverId, channelId, channelType);
         interaction.editReply("Channel unregistered successfully.");
     }
     // temporary help command, will be updated later.
@@ -533,6 +494,7 @@ client.on("interactionCreate", async interaction => {
 
 client.login(process.env.TOKEN);
 
-// get set channel ids on the server via ping
-// list all registered channel of that server
-// convert the channel ids to channel names
+// doesnt account for when a channel is deleted, it will crash.
+    // check the channels if exists initially.
+    // also check in runtime periodically.
+// loadAllRegisteredChannelsOf() (return in object form?)
