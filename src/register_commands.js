@@ -94,7 +94,43 @@ const commands = [
             }
         ]
     },
-    
+    {
+        name: 'all',
+        description: 'Get the matches played today.',
+        options: []
+    },
+    {
+        name: 'match',
+        description: 'Get the matches played by the player.',
+        options: [
+            {
+                name: 'id',
+                description: 'Steam ID of the player.',
+                type: 3,
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'day',
+        description: 'Get the matches played today.',
+        options: []
+    },
+    {
+        name: 'week',
+        description: 'Get the matches played this week.',
+        options: []
+    },
+    {
+        name: 'month',
+        description: 'Get the matches played this month.',
+        options: []
+    },
+    {
+        name: 'year',
+        description: 'Get the matches played this year.',
+        options: []
+    }
 ]
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);

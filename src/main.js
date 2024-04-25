@@ -3,21 +3,32 @@ const axios = require("axios");
 require("dotenv").config();
 
 let lastMatchId = {};
+let lastIndexOnMatchHistory = {};
 let dota2Heroes = {};
 let gameModes = {};
 
 function isMatchHistoryPublic(matchData) {
-    return matchData.result.status !== 15; // match history is private.
+    return matchData.status !== 15; // match history is private.
+}
+
+async function getLast100MatchHistory(steamId) {
+    if (fs.existsSync(`./data/api_fetched/GMH${steamId}.json`)) {
+        const matchHistory = JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`));
+        return matchHistory.result.matches;
+    }
+    const matchHistory = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=100`);
+    fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(matchHistory.data, null, 4));
+    return matchHistory.data.result.matches;
 }
 
 async function getLastMatchHistory(steamId) {
-    // check if the file exist.
-    if (fs.existsSync(`./data/api_fetched/GMH${steamId}.json`)) {
-        const recentMatch = JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`));
-        return recentMatch;
-    }
-    const recentMatch = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=1`);
-    return recentMatch.data;
+    const matchHistory = await getLast100MatchHistory(steamId);
+    return matchHistory[0];
+}
+
+async function getMatchHistoryIndex(index, steamId) {
+    const matchHistory = await getLast100MatchHistory(steamId);
+    return matchHistory[index];
 }
 
 // check if the steam id is valid.
@@ -60,10 +71,13 @@ function loadRegisteredChannelTypesOf(serverId, channelType) {
 function loadAllRegisteredChannelsOf(serverId) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
-    let allChannels = []
+    let allChannels = {};
 
-    if (!server) return [];
-    for (let key in server.registeredChannelIds) allChannels = [...allChannels, ...server.registeredChannelIds[key]];
+    if (!server) return {};
+    for (let key in server.registeredChannelIds) {
+        if (!allChannels[key]) allChannels[key] = [];
+        allChannels[key] = [...allChannels[key], ...server.registeredChannelIds[key]];
+    }
     return allChannels;
 }
 
@@ -171,12 +185,6 @@ function removeRegisteredChannelOf(serverId, channelId, channelType) {
     fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
-// send the game result in discord channels.
-async function sendMessageToChannels(channelId, message) {
-    const channel = await client.channels.fetch(channelId);
-    await channel.send(message);
-}
-
 function getTeamKDA(team) {
     let kills = 0;
     let deaths = 0;
@@ -212,20 +220,45 @@ function getDireTeams(matchDetails) {
     return matchDetails.data.result.players.filter(player => player.team_number === 1);
 }
 
+// send the game result in discord channels.
+async function sendMessageToChannels(channelId, message, messageId=null) {
+    const previous = new ButtonBuilder()
+        .setCustomId("previous")
+        .setLabel("Previous")
+        .setStyle(ButtonStyle.Secondary);
+    const next = new ButtonBuilder()
+        .setCustomId("next")
+        .setLabel("Next")
+        .setStyle(ButtonStyle.Secondary);
+    const row = new ActionRowBuilder().addComponents(previous, next);
+        
+    const channel = await client.channels.fetch(channelId);
+    
+    if (messageId) {
+        const oldMessage = await channel.messages.fetch(messageId);
+        await oldMessage.delete();
+
+        const newMessage = await channel.send({ content: message, components: [row] });
+        lastIndexOnMatchHistory[newMessage.id] = lastIndexOnMatchHistory[messageId];
+        delete lastIndexOnMatchHistory[messageId];
+    }
+    else await channel.send({ content: message, components: [row] });    
+}
 
 // send the game result of the steam id specified to the sendGameResult().
-async function sendGameResult(steamId, registeredChannels) {
+async function sendGameResult(steamId, registeredChannels, isDuplicate=true, recentMatch=null, messageId=null) {
     await Promise.all(registeredChannels.map(async (channelId) => {
-        const recentMatch = await getLastMatchHistory(steamId);
 
-        if (!isMatchHistoryPublic(recentMatch)) return;
-    
-        fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(recentMatch, null, 4));
-        const matchId = recentMatch.result.matches[0].match_id;
+        if (recentMatch === null) {
+            recentMatch = await getLastMatchHistory(steamId);
+            if (!isMatchHistoryPublic(recentMatch)) return;
+        }
+        
+        const matchId = recentMatch.match_id;
     
         // check if the match has already been logged in the channel. Also to prevent unnecessary api calls.
         if (!lastMatchId[matchId]) lastMatchId[matchId] = []
-        if (lastMatchId[matchId].includes(channelId)) return; 
+        if (!isDuplicate && lastMatchId[matchId].includes(channelId)) return; 
         lastMatchId[matchId] = [...lastMatchId[matchId], channelId];
         
         const matchDetails = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`);
@@ -235,9 +268,10 @@ async function sendGameResult(steamId, registeredChannels) {
         const matchDuration = matchDetails.data.result.duration;
         const playerMatchDetails = matchDetails.data.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));
     
-        const formattedMatchDuration =  (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`; // lol
+        const formattedMatchDuration = (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`; // lol
         const formattedKDA = `${playerMatchDetails.kills}/${playerMatchDetails.deaths}/${playerMatchDetails.assists}`; // 0/0/0
-    
+        const radiantIsWin = matchDetails.data.result.radiant_win ? true : false;
+
         const matchData = {
             matchSummary: {
                 gameMode: gameModes[matchDetails.data.result.game_mode],
@@ -249,14 +283,15 @@ async function sendGameResult(steamId, registeredChannels) {
                 playerKDA: formattedKDA,
                 playerLevel: playerMatchDetails.level,
                 playerHeroName: dota2Heroes[playerMatchDetails.hero_id],
-                playerTeam: playerMatchDetails.team_number === 0 ? "Radiant" : "Dire"
+                playerTeam: playerMatchDetails.team_number === 0 ? "Radiant" : "Dire",
+                playerId: parseInt(getDota2IdBySteamId(steamId))
             },
             teamSummary: {
                 radiant: {
                     radiantKDA: getTeamKDA(getRadiantTeams(matchDetails)),
                     ragiantNet: getTeamNet(getRadiantTeams(matchDetails)),
                     radiantDamage: getTeamDamage(getRadiantTeams(matchDetails)),
-                    radiantIsWin: matchDetails.data.result.radiant_win ? true : false
+                    radiantIsWin: radiantIsWin
                 },
                 dire: {
                     direKDA: getTeamKDA(getDireTeams(matchDetails)),
@@ -266,7 +301,8 @@ async function sendGameResult(steamId, registeredChannels) {
                 }
             }
         }
-        sendMessageToChannels(channelId, JSON.stringify(matchData, null, 4));
+        if (messageId) await sendMessageToChannels(channelId, JSON.stringify(matchData, null, 4), messageId);
+        else await sendMessageToChannels(channelId, JSON.stringify(matchData, null, 4));
     }));
 }
 
@@ -308,7 +344,7 @@ async function getPlayerName(steamId) {
 /* ==================================================================================================== */
 // The following code is for the Discord bot.
 
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 
 const client = new Client({
     intents: [
@@ -339,7 +375,7 @@ client.once("ready", async () => {
             const registeredChannels = loadRegisteredChannelTypesOf(guild.id, channelType);
             if (registeredChannels.length === 0) return;
             await Promise.all(steamIds.map(async (steamId) => { // each steam id
-                await sendGameResult(steamId, registeredChannels);
+                await sendGameResult(steamId, registeredChannels, isDuplicate=false);
             }));
         }));
     }, 1000 * 60 * 30); // 30 minutes
@@ -356,7 +392,7 @@ client.once("ready", async () => {
 });
 
 client.on("interactionCreate", async interaction => {
-    if (!interaction.isCommand()) return;
+    if (!interaction.isCommand() && !interaction.isButton()) return;
     const { commandName, options } = interaction;
 
     // your register a user here, either its your account or someone else, its valid.
@@ -425,16 +461,21 @@ client.on("interactionCreate", async interaction => {
     else if (commandName === "channels") {
         await interaction.deferReply();
         const serverId = interaction.guild.id;
-        channelId = interaction.channel.id;
-        const registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
-        const channelNames = registeredChannelIds.map(id => client.channels.cache.get(id).name);
 
-        if (channelNames.length === 0) {
-            interaction.editReply("Error: No channels are registered on this server.");
+        if (!isChannelRegisteredAt(serverId, interaction.channel.id, "all")) {
+            interaction.editReply("Error: Channel not registered.");
             return;
         }
 
-        interaction.editReply(`Registered Channels: ${channelNames.join(", ")}`);
+        const registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
+        const allChannels = registeredChannelIds["all"].map(id => client.channels.cache.get(id).name);
+        const matchChannels = registeredChannelIds["match"].map(id => client.channels.cache.get(id).name);
+        const dayChannels = registeredChannelIds["day"].map(id => client.channels.cache.get(id).name);
+        const weekChannels = registeredChannelIds["week"].map(id => client.channels.cache.get(id).name);
+        const monthChannels = registeredChannelIds["month"].map(id => client.channels.cache.get(id).name);
+        const yearChannels = registeredChannelIds["year"].map(id => client.channels.cache.get(id).name);
+        const channelNames = `Registered Channels:\n All: ${allChannels.join(", ")}\n Match: ${matchChannels.join(", ")}\n Day: ${dayChannels.join(", ")}\n Week: ${weekChannels.join(", ")}\n Month: ${monthChannels.join(", ")}\n Year: ${yearChannels.join(", ")}`;
+        interaction.editReply(channelNames);
     }
     else if (commandName === "setchannel") {
         await interaction.deferReply();
@@ -491,6 +532,71 @@ client.on("interactionCreate", async interaction => {
         await interaction.deferReply();
         interaction.editReply("```Slash Commands:\n/register add <id>\n/register remove <id>\n/register list\n/channels\n/setchannel\n/unsetchannel\n/help```");
     }
+    else if (commandName === "all") {
+        // what does this do?
+    }
+    else if (commandName === "match") {
+        const serverId = interaction.guild.id;
+        const steamId = getStreamIdByDota2Id(options.getString("id"));
+        const channelId = interaction.channel.id;
+
+        if (!isSteamIdRegisteredAt(serverId, steamId)) {
+            interaction.reply("Error: Steam ID not registered on this server.");
+            return;
+        }
+
+        await sendGameResult(steamId, [channelId], isDuplicate=true);
+    }
+    // the rest are auto commands.
+    else if (commandName === "day") {
+
+    }
+    else if (commandName === "week") {
+
+    }
+    else if (commandName === "month") {
+
+    }
+    else if (commandName === "year") {
+
+    }
+    else if (interaction.isButton()) {
+        // imagine this as undo and redo buttons.
+        // this button will browse to the older match history of the player.
+        if (interaction.customId === "previous") {
+            const messageContent = JSON.parse(interaction.message.content);
+            const steamId = getStreamIdByDota2Id(messageContent.playerSummary.playerId.toString());
+            const messageId = interaction.message.id;
+            let currentIndex = lastIndexOnMatchHistory[messageId] || 0;
+
+            if (currentIndex === 100) {
+                interaction.reply("Error: No more match history to show.");
+                return;
+            }
+
+            currentIndex += 1;
+            lastIndexOnMatchHistory[messageId] = currentIndex;
+            const previousMatch = await getMatchHistoryIndex(currentIndex, steamId);
+            await sendGameResult(steamId, [interaction.channel.id], isDuplicate=true, previousMatch, messageId);
+        }
+        // this button will browse to the newer match history of the player.
+        else if (interaction.customId === "next") {
+            const messageContent = JSON.parse(interaction.message.content);
+            const steamId = getStreamIdByDota2Id(messageContent.playerSummary.playerId.toString());
+            const messageId = interaction.message.id;
+            let currentIndex = lastIndexOnMatchHistory[messageId] || 0;
+            
+            if (currentIndex === 0) {
+                interaction.reply("Error: No more match history to show.");
+                return;
+            }
+
+            currentIndex -= 1;
+            lastIndexOnMatchHistory[messageId] = currentIndex;
+            const nextMatch = await getMatchHistoryIndex(currentIndex, steamId);
+            await sendGameResult(steamId, [interaction.channel.id], isDuplicate=true, nextMatch, messageId);
+        }
+    }
 });
 
 client.login(process.env.TOKEN);
@@ -498,4 +604,5 @@ client.login(process.env.TOKEN);
 // doesnt account for when a channel is deleted, it will crash.
     // check the channels if exists initially.
     // also check in runtime periodically.
+// channels can be registered in multiple channel types (do?)
 // loadAllRegisteredChannelsOf() (return in object form?)
