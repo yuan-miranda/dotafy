@@ -51,7 +51,7 @@ function loadWhereSteamIdRegistered(steamId) {
 }
 
 // laod all the registered channels of the server specified.
-function loadRegisteredChanneTypesOf(serverId, channelType) {
+function loadRegisteredChannelTypesOf(serverId, channelType) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredChannelIds[channelType] : [];
@@ -336,7 +336,7 @@ client.once("ready", async () => {
             const channelType = "match";
 
             if(steamIds.length === 0) return;
-            const registeredChannels = loadRegisteredChanneTypesOf(guild.id, channelType);
+            const registeredChannels = loadRegisteredChannelTypesOf(guild.id, channelType);
             if (registeredChannels.length === 0) return;
             await Promise.all(steamIds.map(async (steamId) => { // each steam id
                 await sendGameResult(steamId, registeredChannels);
@@ -426,14 +426,15 @@ client.on("interactionCreate", async interaction => {
         await interaction.deferReply();
         const serverId = interaction.guild.id;
         channelId = interaction.channel.id;
-        const registeredChannels = loadAllRegisteredChannelsOf(serverId);
+        const registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
+        const channelNames = registeredChannelIds.map(id => client.channels.cache.get(id).name);
 
-        if (registeredChannels.length === 0) {
+        if (channelNames.length === 0) {
             interaction.editReply("Error: No channels are registered on this server.");
             return;
         }
 
-        interaction.editReply(`Registered Channels: ${registeredChannels.join(", ")}`);
+        interaction.editReply(`Registered Channels: ${channelNames.join(", ")}`);
     }
     else if (commandName === "setchannel") {
         await interaction.deferReply();
