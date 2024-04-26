@@ -125,11 +125,6 @@ const commands = [
         name: 'month',
         description: 'Get the matches played this month.',
         options: []
-    },
-    {
-        name: 'year',
-        description: 'Get the matches played this year.',
-        options: []
     }
 ]
 
