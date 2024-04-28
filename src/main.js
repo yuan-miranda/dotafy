@@ -686,6 +686,27 @@ client.on("interactionCreate", async interaction => {
         const output = await month(serverId);
         interaction.reply(output);
     }
+    else if (commandName === "dota2id") {
+        const steamId = options.getString("id");
+        if (steamId.length !== 17) {
+            interaction.reply("Error: Invalid Steam ID length. (must be 17 digits)");
+            return;
+        }
+        interaction.reply(getDota2IdBySteamId(steamId));
+    }
+    else if (commandName === "steamid") {
+        const dota2Id = options.getString("id");
+        interaction.reply(getSteamIdByDota2Id(dota2Id));
+    }
+    else if (commandName === "verifyid") {
+        const steamId = options.getString("id");
+        if (steamId.length !== 17) {
+            interaction.reply("Error: Invalid Steam ID length. (must be 17 digits)");
+            return;
+        }
+        if (await isSteamIdValid(steamId)) interaction.reply("Steam ID is valid.");
+        else interaction.reply("Steam ID is invalid.");
+    }
     else if (interaction.isButton()) {
         // imagine this as undo and redo buttons.
         // this button will browse to the older match history of the player.

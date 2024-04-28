@@ -125,6 +125,42 @@ const commands = [
         name: 'month',
         description: 'Get the matches played this month.',
         options: []
+    },
+    {
+        name: 'dota2id',
+        description: 'Convert Steam ID to Dota 2 ID.',
+        options: [
+            {
+                name: 'id',
+                description: 'Steam ID of the player.',
+                type: 3,
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'steamid',
+        description: 'Convert Dota 2 ID to Steam ID.',
+        options: [
+            {
+                name: 'id',
+                description: 'Dota 2 ID of the player.',
+                type: 3,
+                required: true
+            }
+        ]
+    },
+    {
+        name: 'verifyid',
+        description: 'Verify the Steam ID of the player.',
+        options: [
+            {
+                name: 'id',
+                description: 'Steam ID of the player.',
+                type: 3,
+                required: true
+            }
+        ]
     }
 ]
 
