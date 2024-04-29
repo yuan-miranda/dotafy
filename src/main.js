@@ -105,7 +105,7 @@ function loadRegisteredChannelTypesOf(serverId, channelType) {
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredChannelIds[channelType] : [];
 }
-
+// return all the registered channels of the server specified in object form.
 function loadAllRegisteredChannelsOf(serverId) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
@@ -415,6 +415,27 @@ client.once("ready", async () => {
     gameModes = await getDota2GameModes();
     dota2Heroes = await getDota2Heroes();
 
+
+    // check if the channels that are registered in server.json are still valid.
+    await Promise.all(client.guilds.cache.map(async (guild) => {
+        const serverId = guild.id;
+        const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+        const server = servers.find(obj => obj.serverId === serverId);
+        
+        if (!server) return;
+
+        let registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
+
+        // check each channels
+        for (let key in registeredChannelIds) {
+            registeredChannelIds[key] = registeredChannelIds[key].filter(channelId => client.channels.cache.has(channelId));
+        }
+
+        // write the updated channels to the server.json file.
+        server.registeredChannelIds = registeredChannelIds;
+        fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    }));
+
     // this fetches all the registered steam ids of all the servers.
     // in this setInterval(), it will log the game results of each steam id.
     // interval is set to 30 minutes. (average game duration of dota 2 matches)
@@ -513,6 +534,13 @@ client.once("ready", async () => {
         }, 1000 * 60 * 60 * 24 * 15); // 30 days 
     }, 1000 * 60 * 60 * 24 * 15);
 });
+
+client.on("channelDelete", async (channel) => {
+    const serverId = channel.guild.id;
+    const channelId = channel.id;
+    const channelType = loadChannelTypeOf(serverId, channelId);
+    removeRegisteredChannelOf(serverId, channelId, channelType);
+})
 
 client.on("interactionCreate", async interaction => {
     if (!interaction.isCommand() && !interaction.isButton()) return;
@@ -749,7 +777,7 @@ client.on("interactionCreate", async interaction => {
 client.login(process.env.TOKEN);
 
 // doesnt account for when a channel is deleted, it will crash.
-    // check the channels if exists initially.
-    // also check in runtime periodically.
-// channels can be registered in multiple channel types (do?)
-// loadAllRegisteredChannelsOf() (return in object form?)
+    // YES: check the channels if exists initially.
+    // YES: also check in runtime periodically.
+// YES: channels can be registered in multiple channel types (do?)
+// YES: loadAllRegisteredChannelsOf() (return in object form?)
