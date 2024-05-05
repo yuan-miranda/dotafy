@@ -676,7 +676,7 @@ client.once("ready", async () => {
                 await sendGameResult(steamId, registeredChannels, isDuplicate=false);
             }
         }));
-    }, 1000 * 60 * 1); // 30 minutes    
+    }, 1000 * 60 * 30); // 30 minutes    
     
     // let counter = 0;
     // setInterval(async() => { 
