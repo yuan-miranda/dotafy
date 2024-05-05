@@ -1,0 +1,10 @@
+Innacurate heroes are being sent
+Would not log the error message when using /match on private registered users
+MUST: Account for dynamic changes of accounts, as they might disable their:
+    match history
+    delete server
+    unregister while the bot is fetching
+SOLVED (i think):
+    match log messages being deleted
+    channel being deleted
+Still using interval as a timer for auto standings

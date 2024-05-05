@@ -42,10 +42,6 @@ const commands = [
                     {
                         name: 'auto /month',
                         value: 'month'
-                    },
-                    {
-                        name: 'auto /year',
-                        value: 'year'
                     }
                 ]
             }
@@ -90,7 +86,30 @@ const commands = [
                 name: 'list',
                 description: 'List all the dota accounts registered.',
                 type: 1,
-                options: []
+                options: [
+                    {
+                        name: 'type',
+                        description: 'type of user to list. (default: all)',
+                        type: 3,
+                        choices: [
+                            {
+                                name: 'all',
+                                description: 'List all the users.',
+                                value: 'all'
+                            },
+                            {
+                                name: 'public',
+                                description: 'List all the users who have their match history public.',
+                                value: 'public'
+                            },
+                            {
+                                name: 'private',
+                                description: 'List all the users who have their match history private.',
+                                value: 'private'
+                            }
+                        ]
+                    }
+                ]
             }
         ]
     },
