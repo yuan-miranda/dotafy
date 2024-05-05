@@ -72,13 +72,6 @@ async function month(serverId) {
     return `Weekly Standing:\n${output}`;
 }
 
-// return the last 100 matches played by the user.
-async function isMatchHistoryPublic(steamId) {
-    const matchHistory = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=100`);
-    fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(matchHistory.data, null, 4));
-    return matchHistory.data.result.status !== 15; // match history is private.
-}
-
 // return the most recent match played.
 async function getLastMatch(steamId) {
     return JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`)).result.matches[0];
@@ -87,158 +80,6 @@ async function getLastMatch(steamId) {
 // return the match data of the index specified from getLast100Match().
 async function getMatchIndex(index, steamId) {
     return JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`)).result.matches[index];
-}
-
-// check if the steam id is valid.
-async function isSteamIdValid(steamId){
-    if (steamId.length !== 17) return false;
-    const response = await axios.get(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${process.env.STEAM_API_KEY}&steamids=${steamId}`);
-    if (response.data.response.players.length === 0) return false;
-    fs.writeFileSync(`./data/api_fetched/GPS${steamId}.json`, JSON.stringify(response.data, null, 4));
-    return true;
-}
-
-// check if the steam id is stored at the specified server.
-function isSteamIdRegisteredAt(serverId, steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredSteamIds.includes(steamId) : false;
-}
-
-// check if the steam id is stored in any server.
-function isSteamIdRegistered(steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    return servers.some(obj => obj.registeredSteamIds.includes(steamId));
-}
-
-// load the server ids where the steam id is registered.
-function loadWhereSteamIdRegistered(steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const filteredServers = servers.filter(obj => obj.registeredSteamIds.includes(steamId));
-    return filteredServers.map(obj => obj.serverId);
-}
-
-// laod all the registered channels of the server specified.
-function loadRegisteredChannelTypesOf(serverId, channelType) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredChannelIds[channelType] : [];
-}
-// return all the registered channels of the server specified in object form.
-function loadAllRegisteredChannelsOf(serverId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    let allChannels = {};
-
-    if (!server) return {};
-    for (let key in server.registeredChannelIds) {
-        if (!allChannels[key]) allChannels[key] = [];
-        allChannels[key] = [...allChannels[key], ...server.registeredChannelIds[key]];
-    }
-    return allChannels;
-}
-
-// initialize the servers.json file and the initial folder structure.
-function initalizeServerJsonFile() {
-    fs.mkdirSync(`./data/server`, { recursive: true }, () => {});
-    fs.mkdirSync(`./data/api_fetched`, { recursive: true }, () => {});
-    fs.mkdirSync(`./data/banner`, { recursive: true }, () => {});
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
-}
-
-// register the steam id and also channels that are registered in the server specified. (if there are any)
-function registerSteamId(steamId, serverId) {
-    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    let server = servers.find(obj => obj.serverId === serverId);
-
-    // if the server object doesnt exist, initialize a new one.
-    if (!server) {
-        server = {
-            serverId: serverId,
-            registeredSteamIds: [],
-            registeredChannelIds: {
-                all: [],
-                match: [],
-                day: [],
-                week: [],
-                month: []
-            }
-        }
-        servers.push(server);
-    }
-    server.registeredSteamIds.push(steamId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
-}
-
-// remove the registerd steam id of the server specified.
-function removeRegisteredSteamIdOf(serverId, steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    server.registeredSteamIds = server.registeredSteamIds.filter(id => id !== steamId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
-}
-
-// load all the registered steam ids of the server specified.
-function loadRegisteredSteamIdsOf(serverId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredSteamIds : [];
-}
-
-// load the channel type of the channel id specified.
-function loadChannelTypeOf(serverId, channelId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    return server ? Object.keys(server.registeredChannelIds).find(key => server.registeredChannelIds[key].includes(channelId)) || "" : "";
-}
-
-// check if the channel is registered at the server specified.
-function isChannelRegisteredAt(serverId, channelId, channelType) {
-    if (channelType === "") return false;
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    return server ? server.registeredChannelIds[channelType].includes(channelId) : false;
-}
-
-// register the channel id at the server specified.
-function registerChannel(channelId, serverId, channelType) {
-    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    let server = servers.find(obj => obj.serverId === serverId);
-
-    if (!server) {
-        server = {
-            serverId: serverId,
-            registeredSteamIds: [],
-            registeredChannelIds: {
-                all: [],
-                match: [],
-                day: [],
-                week: [],
-                month: []
-            }
-        }
-        servers.push(server);
-    }
-    switch (channelType) {
-        case "all":
-        case "match":
-        case "day":
-        case "week":
-        case "month":
-            // dont need to check if theres a duplicate, as its checked beforehand.
-            server.registeredChannelIds[channelType].push(channelId);
-            break;
-    }
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
-}
-
-// remove the registered channel of the server specified.
-function removeRegisteredChannelOf(serverId, channelId, channelType) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
-    const server = servers.find(obj => obj.serverId === serverId);
-    server.registeredChannelIds[channelType] = server.registeredChannelIds[channelType].filter(id => id !== channelId);
-    // server.registeredChannelIds = server.registeredChannelIds.filter(id => id !== channelId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // return a formatted string of the kda of the team.
@@ -311,6 +152,205 @@ async function getTeamPlayerDetailsOf(team, matchDetails) { // current issue, so
 // return the steam avatar of the steam user.
 function getSteamUserAvatar(steamId) {
     return JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`)).response.players[0].avatar;
+}
+
+// return the list of dota 2 heroes.
+async function getDota2Heroes() {
+    const response = await axios.get('https://api.opendota.com/api/heroes');
+    const heroNames = response.data.map(hero => [
+        hero.localized_name,
+        hero.name.replace("npc_dota_hero_", "")
+    ]);
+    let heroObjects = {};
+    for (let i = 0; i < heroNames.length; i++) heroObjects[i + 2] = heroNames[i]; // idk how but indexing of dota 2 heroes are 2 based.
+    return heroObjects;
+}
+
+// return the list of dota 2 game modes.
+async function getDota2GameModes() {
+    const response = await axios.get('https://api.opendota.com/api/constants/game_mode');
+    let gameModeObjects = {};
+
+    for (let gameMode of Object.values(response.data)) gameModeObjects[gameMode.id] = gameMode.name.split("_").splice(2).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+    return gameModeObjects;
+}
+
+// this is essentially getting the steamId3 from the steamId - the steam64Base constant, I think dota 2 id uses steamId3. This needs a string argument.
+function getDota2IdBySteamId(steamId) {
+    const steam64Base = BigInt("76561197960265728");
+    return (BigInt(steamId) - steam64Base).toString();
+}
+
+// convert the dota 2 id to steam id. (steamId3 to steamId)
+function getSteamIdByDota2Id(dota2Id) {
+    const steam64Base = BigInt("76561197960265728");
+    return (BigInt(dota2Id) + steam64Base).toString();
+}
+
+// get player name from (Steam username).
+async function getPlayerName(steamId) {
+    if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`)) await isSteamIdValid(steamId); // write the GetPlayerSummaries data to the file.
+    const playerData = JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`));
+    return playerData.response.players[0].personaname;
+}
+
+// return the last 100 matches played by the user.
+async function isMatchHistoryPublic(steamId) {
+    const matchHistory = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=100`);
+    fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(matchHistory.data, null, 4));
+    return matchHistory.data.result.status !== 15; // match history is private.
+}
+
+// check if the steam id is valid.
+async function isSteamIdValid(steamId){
+    if (steamId.length !== 17) return false;
+    const response = await axios.get(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${process.env.STEAM_API_KEY}&steamids=${steamId}`);
+    if (response.data.response.players.length === 0) return false;
+    fs.writeFileSync(`./data/api_fetched/GPS${steamId}.json`, JSON.stringify(response.data, null, 4));
+    return true;
+}
+
+// check if the steam id is stored at the specified server.
+function isSteamIdRegisteredAt(serverId, steamId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? server.registeredSteamIds.includes(steamId) : false;
+}
+
+// check if the steam id is stored in any server.
+function isSteamIdRegistered(steamId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    return servers.some(obj => obj.registeredSteamIds.includes(steamId));
+}
+
+// check if the channel is registered at the server specified.
+function isChannelRegisteredAt(serverId, channelId, channelType) {
+    if (channelType === "") return false;
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? server.registeredChannelIds[channelType].includes(channelId) : false;
+}
+
+// load the server ids where the steam id is registered.
+function loadWhereSteamIdRegistered(steamId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const filteredServers = servers.filter(obj => obj.registeredSteamIds.includes(steamId));
+    return filteredServers.map(obj => obj.serverId);
+}
+
+// laod all the registered channels of the server specified.
+function loadRegisteredChannelTypesOf(serverId, channelType) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? server.registeredChannelIds[channelType] : [];
+}
+// return all the registered channels of the server specified in object form.
+function loadAllRegisteredChannelsOf(serverId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    let allChannels = {};
+
+    if (!server) return {};
+    for (let key in server.registeredChannelIds) {
+        if (!allChannels[key]) allChannels[key] = [];
+        allChannels[key] = [...allChannels[key], ...server.registeredChannelIds[key]];
+    }
+    return allChannels;
+}
+
+// load all the registered steam ids of the server specified.
+function loadRegisteredSteamIdsOf(serverId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? server.registeredSteamIds : [];
+}
+
+// load the channel type of the channel id specified.
+function loadChannelTypeOf(serverId, channelId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    return server ? Object.keys(server.registeredChannelIds).find(key => server.registeredChannelIds[key].includes(channelId)) || "" : "";
+}
+
+// initialize the servers.json file and the initial folder structure.
+function initalizeServerJsonFile() {
+    fs.mkdirSync(`./data/server`, { recursive: true }, () => {});
+    fs.mkdirSync(`./data/api_fetched`, { recursive: true }, () => {});
+    fs.mkdirSync(`./data/banner`, { recursive: true }, () => {});
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
+}
+
+// register the steam id and also channels that are registered in the server specified. (if there are any)
+function registerSteamId(steamId, serverId) {
+    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    let server = servers.find(obj => obj.serverId === serverId);
+
+    // if the server object doesnt exist, initialize a new one.
+    if (!server) {
+        server = {
+            serverId: serverId,
+            registeredSteamIds: [],
+            registeredChannelIds: {
+                all: [],
+                match: [],
+                day: [],
+                week: [],
+                month: []
+            }
+        }
+        servers.push(server);
+    }
+    server.registeredSteamIds.push(steamId);
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+}
+
+// remove the registerd steam id of the server specified.
+function removeRegisteredSteamIdOf(serverId, steamId) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    server.registeredSteamIds = server.registeredSteamIds.filter(id => id !== steamId);
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+}
+
+// register the channel id at the server specified.
+function registerChannel(channelId, serverId, channelType) {
+    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    let server = servers.find(obj => obj.serverId === serverId);
+
+    if (!server) {
+        server = {
+            serverId: serverId,
+            registeredSteamIds: [],
+            registeredChannelIds: {
+                all: [],
+                match: [],
+                day: [],
+                week: [],
+                month: []
+            }
+        }
+        servers.push(server);
+    }
+    switch (channelType) {
+        case "all":
+        case "match":
+        case "day":
+        case "week":
+        case "month":
+            // dont need to check if theres a duplicate, as its checked beforehand.
+            server.registeredChannelIds[channelType].push(channelId);
+            break;
+    }
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+}
+
+// remove the registered channel of the server specified.
+function removeRegisteredChannelOf(serverId, channelId, channelType) {
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    server.registeredChannelIds[channelType] = server.registeredChannelIds[channelType].filter(id => id !== channelId);
+    // server.registeredChannelIds = server.registeredChannelIds.filter(id => id !== channelId);
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 async function generateBanner(matchData) {
@@ -582,46 +622,6 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
         else await sendMessageToChannels(channelId, matchData);
     }));
-}
-
-// return the list of dota 2 heroes.
-async function getDota2Heroes() {
-    const response = await axios.get('https://api.opendota.com/api/heroes');
-    const heroNames = response.data.map(hero => [
-        hero.localized_name,
-        hero.name.replace("npc_dota_hero_", "")
-    ]);
-    let heroObjects = {};
-    for (let i = 0; i < heroNames.length; i++) heroObjects[i + 2] = heroNames[i]; // idk how but indexing of dota 2 heroes are 2 based.
-    return heroObjects;
-}
-
-// return the list of dota 2 game modes.
-async function getDota2GameModes() {
-    const response = await axios.get('https://api.opendota.com/api/constants/game_mode');
-    let gameModeObjects = {};
-
-    for (let gameMode of Object.values(response.data)) gameModeObjects[gameMode.id] = gameMode.name.split("_").splice(2).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-    return gameModeObjects;
-}
-
-// this is essentially getting the steamId3 from the steamId - the steam64Base constant, I think dota 2 id uses steamId3. This needs a string argument.
-function getDota2IdBySteamId(steamId) {
-    const steam64Base = BigInt("76561197960265728");
-    return (BigInt(steamId) - steam64Base).toString();
-}
-
-// convert the dota 2 id to steam id. (steamId3 to steamId)
-function getSteamIdByDota2Id(dota2Id) {
-    const steam64Base = BigInt("76561197960265728");
-    return (BigInt(dota2Id) + steam64Base).toString();
-}
-
-// get player name from (Steam username).
-async function getPlayerName(steamId) {
-    if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`)) await isSteamIdValid(steamId); // write the GetPlayerSummaries data to the file.
-    const playerData = JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`));
-    return playerData.response.players[0].personaname;
 }
 
 /* ==================================================================================================== */
