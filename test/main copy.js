@@ -1,3 +1,11 @@
+// FAILED TESTS NOT USABLE
+
+
+
+
+
+
+
 const fs = require("fs");
 const axios = require("axios");
 const { createCanvas, loadImage } = require("canvas");
@@ -490,8 +498,7 @@ async function generateBanner(matchData) {
     return `./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
 }
 
-// send the game result in discord channels.
-async function sendMessageToChannels(channelId, matchData, messageId=null) {
+async function generateMessageEmbed(matchData) {
     // contruct the buttons.
     const previous = new ButtonBuilder()
         .setCustomId("previous")
@@ -517,113 +524,98 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
         .setDescription(`Player Overview\nHero : ${player.playerHeroName}\nKDA: ${player.playerKDA}\nNet: ${player.playerNet}\nLH/DN: ${player.playerLH}/${player.playerDN}\nGPM: ${player.playerGPM}\nXPM: ${player.playerXPM}`)
         .setImage("attachment://banner.png")
         .setFooter({ text: `${matchData.matchSummary.gameMatchId}`});
-        
-    const channel = await client.channels.fetch(channelId);
-    const newMessage = await channel.send({ embeds: [embed], components: [row], files: [attachment] });
 
+    return { embeds: [embed], components: [row], files: [attachment] };
+}
+
+async function updateMatchResult(steamId, channelId, oldMessageId, newMessageId) {
+    const channel = await client.channels.fetch(channelId);
     // when button is clicked, it will send out a new message and delete the old message. (prevent spammed messages)
-    if (messageId) {
-        const oldMessage = await channel.messages.fetch(messageId);
+    if (oldMessageId) {
+        const oldMessage = await channel.messages.fetch(oldMessageId);
         await oldMessage.delete();
         
-        messagePlayerIds[newMessage.id] = messagePlayerIds[messageId];
-        lastMatchIndex[newMessage.id] = lastMatchIndex[messageId];
-        delete lastMatchIndex[messageId];
+        messagePlayerIds[newMessageId] = messagePlayerIds[oldMessageId];
+        lastMatchIndex[newMessageId] = lastMatchIndex[oldMessageId];
+        delete lastMatchIndex[oldMessageId];
     }
     else {
-        messagePlayerIds[newMessage.id] = player.playerId;
-        lastMatchIndex[newMessage.id] = 0;
+        messagePlayerIds[newMessageId] = getDota2IdBySteamId(steamId);
+        lastMatchIndex[newMessageId] = 0;
     }
 }
 
-// send the game result of the steam id specified to the sendGameResult().
-// isDuplicate - boolean to check if the match has already been sent to the channel.
-// recentMatch - specific match data instead of fetching the last match data.
-// messageId   - message to edit instead of sending a new message. (used in the next/previous button)
-async function sendGameResult(steamId, registeredChannels, isDuplicate=true, recentMatch=null, messageId=null) {
-    await Promise.all(registeredChannels.map(async (channelId) => {
-        const serverId = client.channels.cache.get(channelId).guild.id;
-    
-        if (recentMatch === null) {
-            if (!await isMatchHistoryPublic(steamId)) return;
-            recentMatch = await getLastMatch(steamId);
-        }
-        
-        const matchId = recentMatch.match_id;
-    
-        // check if the match has already been logged in the channel. Also to prevent unnecessary api calls.
-        if (!lastMatchIds[matchId]) lastMatchIds[matchId] = []
-        if (!isDuplicate && lastMatchIds[matchId].includes(channelId)) return; // if isDuplicate is false, it will prevent from sending the same match to the same channel.
-        lastMatchIds[matchId] = [...lastMatchIds[matchId], channelId];
+async function getMatchResult(steamId, channelId, oldMatchData=null) {
+    if (!oldMatchData) {
+        if (!await isMatchHistoryPublic(steamId)) return;
+        oldMatchData = await getLastMatch(steamId);
+    }
 
-        const matchDetails = (await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`)).data;
-        fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
+    const matchId = oldMatchData.match_id;
+
+    // check if the match has already been logged in the channel. Also to prevent unnecessary api calls.
+    if (!lastMatchIds[matchId]) lastMatchIds[matchId] = []
+    if (lastMatchIds[matchId].includes(channelId)) return;
+    lastMatchIds[matchId] = [...lastMatchIds[matchId], channelId];
     
-        const matchDuration = matchDetails.result.duration;
-        const playerMatchDetails = matchDetails.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));        
-        const radiantIsWin = matchDetails.result.radiant_win ? true : false;
-        const playerTeamIsWin = playerMatchDetails.team_number === 0 ? radiantIsWin : !radiantIsWin;
-        const teamPlayerDetails = {
-            radiant: await getTeamPlayerDetailsOf("radiant", matchDetails),
-            dire: await getTeamPlayerDetailsOf("dire", matchDetails),
-        }
+    const matchDetails = (await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`)).data;
+    fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
 
-        const playerName = await getPlayerName(steamId);
-        const player = teamPlayerDetails.radiant.find(player => player.playerName === playerName) || teamPlayerDetails.dire.find(player => player.playerName === playerName);
+    const matchDuration = matchDetails.result.duration;
+    const playerMatchDetails = matchDetails.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));        
+    const radiantIsWin = matchDetails.result.radiant_win ? true : false;
+    const playerTeamIsWin = playerMatchDetails.team_number === 0 ? radiantIsWin : !radiantIsWin;
+    const teamPlayerDetails = {
+        radiant: await getTeamPlayerDetailsOf("radiant", matchDetails),
+        dire: await getTeamPlayerDetailsOf("dire", matchDetails),
+    }
 
-        const matchData = {
-            matchSummary: {
-                gameMode: gameModes[matchDetails.result.game_mode],
-                gameMatchDuration: (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`, // lol
-                gameMatchId: matchId,
-                gameWinner: radiantIsWin ? "Radiant" : "Dire"
+    const playerName = await getPlayerName(steamId);
+    const player = teamPlayerDetails.radiant.find(player => player.playerName === playerName) || teamPlayerDetails.dire.find(player => player.playerName === playerName);
+
+    const newMatchData = {
+        matchSummary: {
+            gameMode: gameModes[matchDetails.result.game_mode],
+            gameMatchDuration: (Math.floor(matchDuration / 3600)).toString().padStart(2, "0") !== "00" ? `${(Math.floor(matchDuration / 3600)).toString().padStart(2, "0")}:${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}` : `${(Math.floor((matchDuration % 3600) / 60)).toString().padStart(2, "0")}:${(matchDuration % 60).toString().padStart(2, "0")}`, // lol
+            gameMatchId: matchId,
+            gameWinner: radiantIsWin ? "Radiant" : "Dire"
+        },
+        playerSummary: {
+            playerName: player.playerName,
+            playerHeroLevel: player.playerHeroLevel,
+            playerHeroName: player.playerHeroName,
+            playerKDA: player.playerKDA,
+            playerNet: player.playerNet,
+            playerLH: player.playerLH,
+            playerDN: player.playerDN,
+            playerGPM: player.playerGPM,
+            playerXPM: player.playerXPM,
+            
+            playerHeroIconUrl: player.playerHeroIconUrl,
+            playerHeroDamage: player.playerHeroDamage,
+            playerTeam: player.playerTeam,
+
+            playerTeamIsWin: playerTeamIsWin,
+            playerId: parseInt(getDota2IdBySteamId(steamId))
+        },
+        teamSummary: {
+            radiant: {
+                players: teamPlayerDetails.radiant,
+                radiantKDA: getTeamKDA(getTeamOf("radiant", matchDetails)),
+                ragiantNet: getTeamNet(getTeamOf("radiant", matchDetails)),
+                radiantDamage: getTeamDamage(getTeamOf("radiant", matchDetails)),
+                radiantIsWin: radiantIsWin
             },
-            playerSummary: {
-                playerName: player.playerName,
-                playerHeroLevel: player.playerHeroLevel,
-                playerHeroName: player.playerHeroName,
-                playerKDA: player.playerKDA,
-                playerNet: player.playerNet,
-                playerLH: player.playerLH,
-                playerDN: player.playerDN,
-                playerGPM: player.playerGPM,
-                playerXPM: player.playerXPM,
-                
-                playerHeroIconUrl: player.playerHeroIconUrl,
-                playerHeroDamage: player.playerHeroDamage,
-                playerTeam: player.playerTeam,
-
-                playerTeamIsWin: playerTeamIsWin,
-                playerId: parseInt(getDota2IdBySteamId(steamId))
-            },
-            teamSummary: {
-                radiant: {
-                    players: teamPlayerDetails.radiant,
-                    radiantKDA: getTeamKDA(getTeamOf("radiant", matchDetails)),
-                    ragiantNet: getTeamNet(getTeamOf("radiant", matchDetails)),
-                    radiantDamage: getTeamDamage(getTeamOf("radiant", matchDetails)),
-                    radiantIsWin: radiantIsWin
-                },
-                dire: {
-                    players: teamPlayerDetails.dire,
-                    direKDA: getTeamKDA(getTeamOf("dire", matchDetails)),
-                    direNet: getTeamNet(getTeamOf("dire", matchDetails)),
-                    direDamage: getTeamDamage(getTeamOf("dire", matchDetails)),
-                    direIsWin: !radiantIsWin
-                }
+            dire: {
+                players: teamPlayerDetails.dire,
+                direKDA: getTeamKDA(getTeamOf("dire", matchDetails)),
+                direNet: getTeamNet(getTeamOf("dire", matchDetails)),
+                direDamage: getTeamDamage(getTeamOf("dire", matchDetails)),
+                direIsWin: !radiantIsWin
             }
         }
-
-        // add the win/lose to the daily standings. (this is not invoked when using /match for obvious reasons)
-        if (!isDuplicate) {
-            if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
-            if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
-            if (playerTeamIsWin) dailyStandings[serverId][steamId].win += 1; // win
-            else dailyStandings[serverId][steamId].lose += 1;                // lose
-        }
-        if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
-        else await sendMessageToChannels(channelId, matchData);
-    }));
+    }
+    return newMatchData;
 }
 
 /* ==================================================================================================== */
@@ -668,14 +660,26 @@ client.once("ready", async () => {
     // interval is set to 30 minutes. (average game duration of dota 2 matches)
     setInterval(async() => {
         await Promise.all(client.guilds.cache.map(async (guild) => { // each server
-            const steamIds = loadRegisteredSteamIdsOf(guild.id);
+            const serverId = guild.id;
+            const steamIds = loadRegisteredSteamIdsOf(serverId);
             const channelType = "match";
 
             if(steamIds.length === 0) return;
-            const registeredChannels = loadRegisteredChannelTypesOf(guild.id, channelType);
+            const registeredChannels = loadRegisteredChannelTypesOf(serverId, channelType);
             if (registeredChannels.length === 0) return;
             for (const steamId of steamIds) {
-                await sendGameResult(steamId, registeredChannels, isDuplicate=false);
+                for (const channelId of registeredChannels) {
+                    const matchData = await getMatchResult(steamId, channelId);
+                    const channel = await client.channels.fetch(channelId);
+                    const message = await channel.send(await generateMessageEmbed(matchData));
+                    await updateMatchResult(steamId, channelId, null, message.id);
+
+                    // add the win/lose to the daily standings. (this is not invoked when using /match for obvious reasons)
+                    if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
+                    if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
+                    if (matchData.playerSummary.playerTeamIsWin) dailyStandings[serverId][steamId].win += 1; // win
+                    else dailyStandings[serverId][steamId].lose += 1;                                        // lose
+                }
             }
         }));
     }, 1000 * 60 * 30); // 30 minutes    
@@ -912,13 +916,22 @@ client.on("interactionCreate", async interaction => {
         // what does this do?
     }
     else if (commandName === "match") {
+        await interaction.deferReply();
+
         const serverId = interaction.guild.id;
         const channelId = interaction.channel.id;
         let steamId = options.getString("id");
         if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId);
-        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.reply("Error: Steam ID not registered on this server.");
-        else if (!await isMatchHistoryPublic(steamId)) await interaction.reply("Error: Match history is private.");
-        else await sendGameResult(steamId, [channelId], isDuplicate=true);
+        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.editReply("Error: Steam ID not registered on this server.");
+        else if (!await isMatchHistoryPublic(steamId)) await interaction.editReply("Error: Match history is private.");
+        else {
+            const matchData = await getMatchResult(steamId, channelId);
+            fs.writeFileSync("output1.json", JSON.stringify(matchData, null, 4));
+            console.log("passed 1")
+            const message = await interaction.editReply(await generateMessageEmbed(matchData));
+            console.log("passed 2")
+            await updateMatchResult(steamId, channelId, null, message.id);
+        }
     }
     // the rest are auto commands.
     else if (commandName === "day") {
@@ -955,6 +968,7 @@ client.on("interactionCreate", async interaction => {
         const steamId = interaction.message.embeds[0].author.url.replace("https://steamcommunity.com/profiles/", "");
         if (!await isMatchHistoryPublic(steamId)) await interaction.followUp({ content: "Error: Match history is private.", ephemeral: true });
 
+        const channelId = interaction.channel.id;
         const messageId = interaction.message.id;
         let currentIndex = lastMatchIndex[messageId] || 0;
 
@@ -977,10 +991,15 @@ client.on("interactionCreate", async interaction => {
             }
             else currentIndex += 1;
 
+            await interaction.deferUpdate();
             await interaction.update({ components: [row] });
             lastMatchIndex[messageId] = currentIndex;
+            console.log(currentIndex);
+
             const previousMatch = await getMatchIndex(currentIndex, steamId);
-            await sendGameResult(steamId, [interaction.channel.id], isDuplicate=true, previousMatch, messageId);
+            const matchData = await getMatchResult(steamId, channelId, previousMatch);
+            const message = await interaction.followUp(await generateMessageEmbed(matchData));
+            await updateMatchResult(steamId, channelId, messageId, message.id);
         }
         // this button will browse to the newer match history of the player.
         else if (interaction.customId === "next") {
@@ -990,10 +1009,15 @@ client.on("interactionCreate", async interaction => {
             }
             else currentIndex -= 1;
 
+            await interaction.deferReply();
             await interaction.update({ components: [row] });
             lastMatchIndex[messageId] = currentIndex;
+            console.log(currentIndex);
+
             const nextMatch = await getMatchIndex(currentIndex, steamId);
-            await sendGameResult(steamId, [interaction.channel.id], isDuplicate=true, nextMatch, messageId);
+            const matchData = await getMatchResult(steamId, channelId, nextMatch);
+            const message = await interaction.followUp(await generateMessageEmbed(matchData));
+            await updateMatchResult(steamId, channelId, messageId, message.id);
         }
     }
 });
