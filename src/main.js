@@ -505,10 +505,17 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
     
     const player = matchData.playerSummary;
 
-    const attachment = new AttachmentBuilder()
-        .setFile(await generateBanner(matchData))
-        .setName("banner.png");
-
+    console.time("generateBanner")
+    let attachment = new AttachmentBuilder();
+    try {
+        attachment.setFile(await generateBanner(matchData));
+        attachment.setName("banner.png");
+    } catch (error) {
+        attachment.setFile("./data/banner/ERROR_BANNER.png");
+        attachment.setName("banner.png");
+    }
+    console.timeEnd("generateBanner")
+    
     const embed = new EmbedBuilder()
         .setColor(player.playerTeamIsWin ? "Green" : "Red")
         .setTitle(`${matchData.matchSummary.gameMode} ${matchData.matchSummary.gameMatchDuration}`)
@@ -524,11 +531,10 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
     // when button is clicked, it will send out a new message and delete the old message. (prevent spammed messages)
     if (messageId) {
         const oldMessage = await channel.messages.fetch(messageId);
-        await oldMessage.delete();
         
         messagePlayerIds[newMessage.id] = messagePlayerIds[messageId];
         lastMatchIndex[newMessage.id] = lastMatchIndex[messageId];
-        delete lastMatchIndex[messageId];
+        await oldMessage.delete();
     }
     else {
         messagePlayerIds[newMessage.id] = player.playerId;
