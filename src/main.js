@@ -27,49 +27,85 @@ let gameModes = {};
 // key: messageId, value: steamId
 let messagePlayerIds = {};
 
-// list of win/lose.
-// key: serverId, value {steamId: {win: 0, lose: 0}}
 let dailyStandings = {};
 let weeklyStandings = {};
 let monthlyStandings = {};
 
+// list of win/lose.
+// dailyStanding = {
+//     standing: {
+//         serverId: {
+//             steamId: {win: 0, lose: 0}, ...
+//         }, ...
+//     }
+// }
+function formatStanding(currentStanding) {
+    let standing = currentStanding;
+    let users = Object.keys(standing);
+
+    // sort the user based on their win/lose ratio
+    users.sort((a, b) => {
+        return standing[b].winLoseRatio - standing[a].winLoseRatio;
+    });
+
+    // convert the sorted array back to an object
+    standing = users.reduce((obj, user) => {
+        obj[user] = standing[user];
+        return obj;
+    }, {});
+
+    return standing;
+}
+
 // retun the daily standing of the server specified.
 async function day(serverId) {
-    await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-        if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
-        if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
-    }));
+    if (!dailyStandings[serverId]) dailyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
     let output = "";
-    for (let user in dailyStandings[serverId]) {
-        output += `(${getDota2IdBySteamId(user)}) ${await getPlayerName(user)} - ${dailyStandings[serverId][user].win}W ${dailyStandings[serverId][user].lose}L\n`;
+
+    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+        if (!dailyStandings[serverId].previousStanding[steamId]) dailyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!dailyStandings[serverId].currentStanding[steamId]) dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
     }
-    return `Daily Standing:\n${output}`;
+    const newStandings = formatStanding(dailyStandings[serverId].currentStanding);
+
+    for (let steamId in newStandings) {
+        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+    }
+    return `Daily Standing:\n\`\`\`${output}\`\`\``;
 }
 
 // return the weekly standing of the server specified.
 async function week(serverId) {
-    await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-        if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
-        if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0};
-    }));
+    if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
     let output = "";
-    for (let user in weeklyStandings[serverId]) {
-        output += `(${getDota2IdBySteamId(user)}) ${await getPlayerName(user)} - ${weeklyStandings[serverId][user].win}W ${weeklyStandings[serverId][user].lose}L\n`;
+
+    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+        if (!weeklyStandings[serverId].previousStanding[steamId]) weeklyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!weeklyStandings[serverId].currentStanding[steamId]) weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
     }
-    return `Weekly Standing:\n${output}`;
+    const newStandings = formatStanding(weeklyStandings[serverId].currentStanding);
+
+    for (let steamId in newStandings) {
+        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+    }
+    return `Weekly Standing:\n\`\`\`${output}\`\`\``;
 }
 
 // return the monthly standing of the server specified.
 async function month(serverId) {
-    await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-        if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
-        if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0};
-    }));
+    if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
     let output = "";
-    for (let user in monthlyStandings[serverId]) {
-        output += `(${getDota2IdBySteamId(user)}) ${await getPlayerName(user)} - ${monthlyStandings[serverId][user].win}W ${monthlyStandings[serverId][user].lose}L\n`;
+
+    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+        if (!monthlyStandings[serverId].previousStanding[steamId]) monthlyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!monthlyStandings[serverId].currentStanding[steamId]) monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
     }
-    return `Weekly Standing:\n${output}`;
+    const newStandings = formatStanding(monthlyStandings[serverId].currentStanding);
+
+    for (let steamId in newStandings) {
+        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+    }
+    return `Monthly Standing:\n\`\`\`${output}\`\`\``;
 }
 
 // return the most recent match played.
@@ -622,10 +658,13 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
 
         // add the win/lose to the daily standings. (this is not invoked when using /match for obvious reasons)
         if (!isDuplicate) {
-            if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
-            if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
-            if (playerTeamIsWin) dailyStandings[serverId][steamId].win += 1; // win
-            else dailyStandings[serverId][steamId].lose += 1;                // lose
+            if (!dailyStandings[serverId]) dailyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
+            if (!dailyStandings[serverId].previousStanding[steamId]) dailyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!dailyStandings[serverId].currentStanding[steamId]) dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+
+            if (playerTeamIsWin) dailyStandings[serverId].currentStanding[steamId].win += 1; // win
+            else dailyStandings[serverId].currentStanding[steamId].lose += 1;                // lose
+            dailyStandings[serverId].currentStanding[steamId].winLoseRatio = dailyStandings[serverId].currentStanding[steamId].win / (dailyStandings[serverId].currentStanding[steamId].lose || 1);
         }
         if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
         else await sendMessageToChannels(channelId, matchData);
@@ -671,7 +710,6 @@ client.once("ready", async () => {
 
     // this fetches all the registered steam ids of all the servers.
     // in this setInterval(), it will log the game results of each steam id.
-    // interval is set to 30 minutes. (average game duration of dota 2 matches)
     setInterval(async() => {
         await Promise.all(client.guilds.cache.map(async (guild) => { // each server
             const steamIds = loadRegisteredSteamIdsOf(guild.id);
@@ -684,7 +722,7 @@ client.once("ready", async () => {
                 await sendGameResult(steamId, registeredChannels, isDuplicate=false);
             }
         }));
-    }, 1000 * 60 * 30); // 30 minutes    
+    }, 1000 * 60 * 1); // 1 minute
     
     // let counter = 0;
     // setInterval(async() => { 
@@ -701,71 +739,87 @@ client.once("ready", async () => {
 
     // auto commands for day, week, month
     setInterval(async() => {
-        await Promise.all(client.guilds.cache.map(async (guild) => {
-            const serverId = guild.id;
+        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
             const messageContent = await day(serverId);
 
-            await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-                if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
-                if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0};
-                if (dailyStandings[serverId] && dailyStandings[serverId][steamId]) {
-                    weeklyStandings[serverId][steamId].win += dailyStandings[serverId][steamId].win;
-                    weeklyStandings[serverId][steamId].lose += dailyStandings[serverId][steamId].lose;
+            // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].currentStanding.
+            for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+                if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
+                if (!weeklyStandings[serverId].previousStanding[steamId]) weeklyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                if (!weeklyStandings[serverId].currentStanding[steamId]) weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-                    delete dailyStandings[serverId][steamId];
-                    if (Object.keys(dailyStandings[serverId]).length === 0) delete dailyStandings[serverId];
+                if (dailyStandings[serverId] && dailyStandings[serverId].currentStanding[steamId]) {
+                    weeklyStandings[serverId].currentStanding[steamId].win += dailyStandings[serverId].currentStanding[steamId].win;
+                    weeklyStandings[serverId].currentStanding[steamId].lose += dailyStandings[serverId].currentStanding[steamId].lose;
+                    weeklyStandings[serverId].currentStanding[steamId].winLoseRatio = weeklyStandings[serverId].currentStanding[steamId].win / (weeklyStandings[serverId].currentStanding[steamId].lose || 1);
+
+                    dailyStandings[serverId].previousStanding[steamId].win = dailyStandings[serverId].currentStanding[steamId].win;
+                    dailyStandings[serverId].previousStanding[steamId].lose = dailyStandings[serverId].currentStanding[steamId].lose;
+                    dailyStandings[serverId].previousStanding[steamId].winLoseRatio = dailyStandings[serverId].currentStanding[steamId].win / (dailyStandings[serverId].currentStanding[steamId].lose || 1);
+
+                    dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                 }
-            }));
+            }
+            
             const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "day");
             await Promise.all(registeredChannelIds.map(async (channelId) => {
                 const channel = await client.channels.fetch(channelId);
                 await channel.send(messageContent);
             }));
-        }));
+        }
     }, 1000 * 60 * 60 * 24); // 24 hours 
 
     setInterval(async() => {
-        await Promise.all(client.guilds.cache.map(async (guild) => {
-            const serverId = guild.id;
+        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
             const messageContent = await week(serverId);
 
-            await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-                if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
-                if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0};
-                if (weeklyStandings[serverId] && weeklyStandings[serverId][steamId]) {
-                    monthlyStandings[serverId][steamId].win += weeklyStandings[serverId][steamId].win;
-                    monthlyStandings[serverId][steamId].lose += weeklyStandings[serverId][steamId].lose;
+            for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+                if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
+                if (!monthlyStandings[serverId].previousStanding[steamId]) monthlyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                if (!monthlyStandings[serverId].currentStanding[steamId]) monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-                    delete weeklyStandings[serverId][steamId];
-                    if (Object.keys(weeklyStandings[serverId]).length === 0) delete weeklyStandings[serverId];
+                if (weeklyStandings[serverId] && weeklyStandings[serverId].currentStanding[steamId]) {
+                    monthlyStandings[serverId].currentStanding[steamId].win += weeklyStandings[serverId].currentStanding[steamId].win;
+                    monthlyStandings[serverId].currentStanding[steamId].lose += weeklyStandings[serverId].currentStanding[steamId].lose;
+                    monthlyStandings[serverId].currentStanding[steamId].winLoseRatio = monthlyStandings[serverId].currentStanding[steamId].win / (monthlyStandings[serverId].currentStanding[steamId].lose || 1);
+
+                    weeklyStandings[serverId].previousStanding[steamId].win = weeklyStandings[serverId].currentStanding[steamId].win;
+                    weeklyStandings[serverId].previousStanding[steamId].lose = weeklyStandings[serverId].currentStanding[steamId].lose;
+                    weeklyStandings[serverId].previousStanding[steamId].winLoseRatio = weeklyStandings[serverId].currentStanding[steamId].win / (weeklyStandings[serverId].currentStanding[steamId].lose || 1);
+
+                    weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                 }
-            }));
+            }
+
             const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "week");
             await Promise.all(registeredChannelIds.map(async (channelId) => {
                 const channel = await client.channels.fetch(channelId);
                 await channel.send(messageContent);
             }));
-        }));
+        }
     }, 1000 * 60 * 60 * 24 * 7); // 7 days 
 
     setInterval(async() => {
         setTimeout(async() => {
-            await Promise.all(client.guilds.cache.map(async (guild) => {
-                const serverId = guild.id;
+            for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
                 const messageContent = await month(serverId);
-                
-                await Promise.all(loadRegisteredSteamIdsOf(serverId).map(async (steamId) => {
-                    if (monthlyStandings[serverId] && monthlyStandings[serverId][steamId]) {
-                        delete monthlyStandings[serverId][steamId];
-                        if (Object.keys(monthlyStandings[serverId]).length === 0) delete monthlyStandings[serverId];
+
+                for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+                    if (monthlyStandings[serverId] && monthlyStandings[serverId].currentStanding[steamId]) {
+                        monthlyStandings[serverId].previousStanding[steamId].win = monthlyStandings[serverId].currentStanding[steamId].win;
+                        monthlyStandings[serverId].previousStanding[steamId].lose = monthlyStandings[serverId].currentStanding[steamId].lose;
+                        monthlyStandings[serverId].previousStanding[steamId].winLoseRatio = monthlyStandings[serverId].currentStanding[steamId].win / (monthlyStandings[serverId].currentStanding[steamId].lose || 1);
+
+                        monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                     }
-                }));
+                }
+
                 const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "month");
                 await Promise.all(registeredChannelIds.map(async (channelId) => {
                     const channel = await client.channels.fetch(channelId);
                     await channel.send(messageContent);
                 }));
-            }));
+            }
         }, 1000 * 60 * 60 * 24 * 15); // 30 days 
     }, 1000 * 60 * 60 * 24 * 15);
 });
