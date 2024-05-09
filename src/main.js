@@ -1,5 +1,6 @@
 const fs = require("fs");
 const axios = require("axios");
+const bmd = require("discord-bettermarkdown");
 const { createCanvas, loadImage } = require("canvas");
 require("dotenv").config();
 
@@ -39,8 +40,7 @@ let monthlyStandings = {};
 //         }, ...
 //     }
 // }
-function formatStanding(currentStanding) {
-    let standing = currentStanding;
+function formatStanding(standing) {
     let users = Object.keys(standing);
 
     // sort the user based on their win/lose ratio
@@ -59,53 +59,62 @@ function formatStanding(currentStanding) {
 
 // retun the daily standing of the server specified.
 async function day(serverId) {
-    if (!dailyStandings[serverId]) dailyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-    let output = "";
+    if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
+    let topPlayers = "";
+    let unchangedPlayers = "";
+    let bottomPlayers = "";
 
     for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-        if (!dailyStandings[serverId].previousStanding[steamId]) dailyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-        if (!dailyStandings[serverId].currentStanding[steamId]) dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-    }
-    const newStandings = formatStanding(dailyStandings[serverId].currentStanding);
+        if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-    for (let steamId in newStandings) {
-        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+        let player = dailyStandings[serverId][steamId];
+
+        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
+        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
     }
-    return `Daily Standing:\n\`\`\`${output}\`\`\``;
+
+    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the weekly standing of the server specified.
 async function week(serverId) {
-    if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-    let output = "";
+    if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
+    let topPlayers = "";
+    let unchangedPlayers = "";
+    let bottomPlayers = "";
 
     for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-        if (!weeklyStandings[serverId].previousStanding[steamId]) weeklyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-        if (!weeklyStandings[serverId].currentStanding[steamId]) weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-    }
-    const newStandings = formatStanding(weeklyStandings[serverId].currentStanding);
+        if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-    for (let steamId in newStandings) {
-        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+        let player = weeklyStandings[serverId][steamId];
+        
+        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
+        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
     }
-    return `Weekly Standing:\n\`\`\`${output}\`\`\``;
+
+    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the monthly standing of the server specified.
 async function month(serverId) {
-    if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-    let output = "";
+    if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
+    let topPlayers = "";
+    let unchangedPlayers = "";
+    let bottomPlayers = "";
 
     for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-        if (!monthlyStandings[serverId].previousStanding[steamId]) monthlyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-        if (!monthlyStandings[serverId].currentStanding[steamId]) monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-    }
-    const newStandings = formatStanding(monthlyStandings[serverId].currentStanding);
+        if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+    
+        let player = monthlyStandings[serverId][steamId];
 
-    for (let steamId in newStandings) {
-        output += `${newStandings[steamId].win} ${newStandings[steamId].lose} ${newStandings[steamId].winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`;
+        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
+        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
     }
-    return `Monthly Standing:\n\`\`\`${output}\`\`\``;
+
+    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the most recent match played.
@@ -594,9 +603,10 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         const matchId = recentMatch.match_id;
     
         // check if the match has already been logged in the channel. Also to prevent unnecessary api calls.
-        if (!lastMatchIds[matchId]) lastMatchIds[matchId] = []
-        if (!isDuplicate && lastMatchIds[matchId].includes(channelId)) return; // if isDuplicate is false, it will prevent from sending the same match to the same channel.
-        lastMatchIds[matchId] = [...lastMatchIds[matchId], channelId];
+        if (!lastMatchIds[matchId]) lastMatchIds[matchId] = {};
+        if (!lastMatchIds[matchId][channelId]) lastMatchIds[matchId][channelId] = [];
+        if (!isDuplicate && lastMatchIds[matchId][channelId].includes(steamId)) return; 
+        lastMatchIds[matchId][channelId] = [...lastMatchIds[matchId][channelId], steamId];
 
         const matchDetails = (await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`)).data;
         fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
@@ -658,13 +668,12 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
 
         // add the win/lose to the daily standings. (this is not invoked when using /match for obvious reasons)
         if (!isDuplicate) {
-            if (!dailyStandings[serverId]) dailyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-            if (!dailyStandings[serverId].previousStanding[steamId]) dailyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-            if (!dailyStandings[serverId].currentStanding[steamId]) dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
+            if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-            if (playerTeamIsWin) dailyStandings[serverId].currentStanding[steamId].win += 1; // win
-            else dailyStandings[serverId].currentStanding[steamId].lose += 1;                // lose
-            dailyStandings[serverId].currentStanding[steamId].winLoseRatio = dailyStandings[serverId].currentStanding[steamId].win / (dailyStandings[serverId].currentStanding[steamId].lose || 1);
+            if (playerTeamIsWin) dailyStandings[serverId][steamId].win += 1; // win
+            else dailyStandings[serverId][steamId].lose += 1;                // lose
+            dailyStandings[serverId][steamId].winLoseRatio = dailyStandings[serverId][steamId].win / (dailyStandings[serverId][steamId].lose || 1);
         }
         if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
         else await sendMessageToChannels(channelId, matchData);
@@ -708,28 +717,6 @@ client.once("ready", async () => {
         fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
     }));
 
-    // this fetches all the registered steam ids of all the servers.
-    // in this setInterval(), it will log the game results of each steam id.
-    setInterval(async() => {
-        await Promise.all(client.guilds.cache.map(async (guild) => { // each server
-            const steamIds = loadRegisteredSteamIdsOf(guild.id);
-            const channelType = "match";
-
-            if(steamIds.length === 0) return;
-            const registeredChannels = loadRegisteredChannelTypesOf(guild.id, channelType);
-            if (registeredChannels.length === 0) return;
-            for (const steamId of steamIds) {
-                await sendGameResult(steamId, registeredChannels, isDuplicate=false);
-            }
-        }));
-    }, 1000 * 60 * 1); // 1 minute
-    
-    // let counter = 0;
-    // setInterval(async() => { 
-    //     counter++;
-    //     console.log(counter);
-    // }, 1000);
-
     // update nescesarry dota 2 objects every 24 hours.
     setInterval(async() => {
         gameModes = await getDota2GameModes();
@@ -737,27 +724,40 @@ client.once("ready", async () => {
         dota2HeroIconsUrl = await getHeroIcons();
     }, 1000 * 60 * 60 * 24); // 24 hours
 
+
+    // this fetches all the registered steam ids of all the servers.
+    // in this setInterval(), it will log the game results of each steam id.
+    setInterval(async() => {
+        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+            const steamIds = loadRegisteredSteamIdsOf(serverId);
+            const channelType = "match";
+
+            if(steamIds.length === 0) return;
+            const registeredChannels = loadRegisteredChannelTypesOf(serverId, channelType);
+            if (registeredChannels.length === 0) return;
+            for (const steamId of steamIds) {
+                await sendGameResult(steamId, registeredChannels, isDuplicate=false);
+            }
+            dailyStandings[serverId] = formatStanding(dailyStandings[serverId]);
+        }
+    }, 1000 * 60 * 2); // 2 minutes
+
     // auto commands for day, week, month
     setInterval(async() => {
         for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
             const messageContent = await day(serverId);
 
-            // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].currentStanding.
+            // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].
             for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-                if (!weeklyStandings[serverId].previousStanding[steamId]) weeklyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-                if (!weeklyStandings[serverId].currentStanding[steamId]) weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
+                if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-                if (dailyStandings[serverId] && dailyStandings[serverId].currentStanding[steamId]) {
-                    weeklyStandings[serverId].currentStanding[steamId].win += dailyStandings[serverId].currentStanding[steamId].win;
-                    weeklyStandings[serverId].currentStanding[steamId].lose += dailyStandings[serverId].currentStanding[steamId].lose;
-                    weeklyStandings[serverId].currentStanding[steamId].winLoseRatio = weeklyStandings[serverId].currentStanding[steamId].win / (weeklyStandings[serverId].currentStanding[steamId].lose || 1);
+                if (dailyStandings[serverId] && dailyStandings[serverId][steamId]) {
+                    weeklyStandings[serverId][steamId].win += dailyStandings[serverId][steamId].win;
+                    weeklyStandings[serverId][steamId].lose += dailyStandings[serverId][steamId].lose;
+                    weeklyStandings[serverId][steamId].winLoseRatio = weeklyStandings[serverId][steamId].win / (weeklyStandings[serverId][steamId].lose || 1);
 
-                    dailyStandings[serverId].previousStanding[steamId].win = dailyStandings[serverId].currentStanding[steamId].win;
-                    dailyStandings[serverId].previousStanding[steamId].lose = dailyStandings[serverId].currentStanding[steamId].lose;
-                    dailyStandings[serverId].previousStanding[steamId].winLoseRatio = dailyStandings[serverId].currentStanding[steamId].win / (dailyStandings[serverId].currentStanding[steamId].lose || 1);
-
-                    dailyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                    dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                 }
             }
             
@@ -774,20 +774,15 @@ client.once("ready", async () => {
             const messageContent = await week(serverId);
 
             for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {previousStanding: {}, currentStanding: {}};
-                if (!monthlyStandings[serverId].previousStanding[steamId]) monthlyStandings[serverId].previousStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-                if (!monthlyStandings[serverId].currentStanding[steamId]) monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
+                if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
-                if (weeklyStandings[serverId] && weeklyStandings[serverId].currentStanding[steamId]) {
-                    monthlyStandings[serverId].currentStanding[steamId].win += weeklyStandings[serverId].currentStanding[steamId].win;
-                    monthlyStandings[serverId].currentStanding[steamId].lose += weeklyStandings[serverId].currentStanding[steamId].lose;
-                    monthlyStandings[serverId].currentStanding[steamId].winLoseRatio = monthlyStandings[serverId].currentStanding[steamId].win / (monthlyStandings[serverId].currentStanding[steamId].lose || 1);
+                if (weeklyStandings[serverId] && weeklyStandings[serverId][steamId]) {
+                    monthlyStandings[serverId][steamId].win += weeklyStandings[serverId][steamId].win;
+                    monthlyStandings[serverId][steamId].lose += weeklyStandings[serverId][steamId].lose;
+                    monthlyStandings[serverId][steamId].winLoseRatio = monthlyStandings[serverId][steamId].win / (monthlyStandings[serverId][steamId].lose || 1);
 
-                    weeklyStandings[serverId].previousStanding[steamId].win = weeklyStandings[serverId].currentStanding[steamId].win;
-                    weeklyStandings[serverId].previousStanding[steamId].lose = weeklyStandings[serverId].currentStanding[steamId].lose;
-                    weeklyStandings[serverId].previousStanding[steamId].winLoseRatio = weeklyStandings[serverId].currentStanding[steamId].win / (weeklyStandings[serverId].currentStanding[steamId].lose || 1);
-
-                    weeklyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                    weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                 }
             }
 
@@ -805,12 +800,8 @@ client.once("ready", async () => {
                 const messageContent = await month(serverId);
 
                 for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                    if (monthlyStandings[serverId] && monthlyStandings[serverId].currentStanding[steamId]) {
-                        monthlyStandings[serverId].previousStanding[steamId].win = monthlyStandings[serverId].currentStanding[steamId].win;
-                        monthlyStandings[serverId].previousStanding[steamId].lose = monthlyStandings[serverId].currentStanding[steamId].lose;
-                        monthlyStandings[serverId].previousStanding[steamId].winLoseRatio = monthlyStandings[serverId].currentStanding[steamId].win / (monthlyStandings[serverId].currentStanding[steamId].lose || 1);
-
-                        monthlyStandings[serverId].currentStanding[steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                    if (monthlyStandings[serverId] && monthlyStandings[serverId][steamId]) {
+                        monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
                     }
                 }
 

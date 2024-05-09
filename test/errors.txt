@@ -1,10 +1,16 @@
-Innacurate heroes are being sent
-Would not log the error message when using /match on private registered users
 MUST: Account for dynamic changes of accounts, as they might disable their:
-    match history
-    delete server
-    unregister while the bot is fetching
+    Match history
+    Delete server
+    Unregister while the bot is fetching
+
 SOLVED (i think):
-    match log messages being deleted
-    channel being deleted
+    Match log messages being deleted
+    Channel being deleted
+    Would not log the error message when using /match on private registered users
+    Innacurate heroes are being sent
+    Bot doesnt send each players match result if theyre on the same team
+
+ISSUES:
 Still using interval as a timer for auto standings
+/register or any mention of getDota2IdBySteamId() or vice versa having non type int value will crash the bot
+Still not sure if auto /week and /month is working correctly
