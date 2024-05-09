@@ -13,8 +13,8 @@ List all the channels in this server.
 ```
 /channels
 ```
-**(Currently not working)** Set the channel for logging messages. Must be on the channel you want to set. (admin only)
-> all - Set the channel to logs all bot activity automatically i.e. auto standings, match results.<br>
+Set the channel for logging messages. Must be on the channel you want to set. (admin only)
+> all - Set the channel to logs all bot activity automatically i.e. auto standings, match results. **(Currently not working)**<br>
 > match - Set the channel to log match results.<br>
 > day - Set the channel to log daily performance standing.<br>
 > week - Set the channel to log weekly performance standing.<br>
@@ -82,27 +82,33 @@ Check if the steam id is valid.
 ```
 
 ## Installation Setup (For those who wants to try the source code)
-
 Download the following modules:
 ```
-npm install dotenv canvas axios discord.js -y
+npm install dotenv canvas axios discord-bettermarkdown@latest discord.js -y
 ```
 
 ## Discord Bot Setup
-
 - Go to https://discord.com/developers/applications and select or create a bot.
 - Copy the Application ID.
 ![image](https://github.com/yuan-miranda/dissh/assets/142481797/dba230d1-a107-4ea1-9340-96404ce52b09)
-- Go to `Bot` section and copy the bot's token (when its 'Reset Token', just do what it says).
+- Go to `Bot` section and copy the bot's token (when its `Reset Token`, just do what it says).
 ![image](https://github.com/yuan-miranda/dissh/assets/142481797/5ac4ace5-e070-49ba-8b8b-adf79b2db77f)
 - Enable the following Privileged Gateway Intents:
 ![image](https://github.com/yuan-miranda/dissh/assets/142481797/26160487-d1ff-403f-8e20-b9ce5e3e4160)
 - And on the `OAuth2` section, go to `OAuth2 URL Generator`, and select 'bot > Administrator' and copy the generated url and enter it on your browser to invite your bot on the server.
 
+## Getting Steam Web API Key
+- Go to https://steamcommunity.com/dev and on this section on the image below, click the highlighted `by filling out this form` and log in on your Steam Account.
+![image](https://github.com/yuan-miranda/dotafy/assets/142481797/7fe5de6e-a937-4fa0-8456-1c31ba6d2b10)
+- And after logging in, you'll see this page, just enter anything you'd like for the name and hit register.
+![image](https://github.com/yuan-miranda/dotafy/assets/142481797/5e626200-4639-4fed-9af2-f1a383e7de60)
+- After that copy the API key.
+
 ## Code Setup
 - After downloading the bot's source code, make a `.env` file inside the `src` folder.
-- Inside the '.env' file, do the following, **this is an example value**, paste your bot's token and id instead.
-![image](https://github.com/yuan-miranda/dissh/assets/142481797/574e0835-5c4c-490e-81ad-beec5f6c0c1e)
+- Inside the `.env` file, do the following, **this is an example value**, paste your api key, bot's token and id instead.
+![image](https://github.com/yuan-miranda/dotafy/assets/142481797/b35bbc84-a1b0-4ad6-ac1e-afcd2468b006)
+
 
 ## Running the Bot
 - Execute the following commands/files:
