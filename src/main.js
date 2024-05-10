@@ -92,7 +92,7 @@ async function week(serverId) {
         if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
         else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
         else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
-    }
+   }
 
     return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
@@ -112,7 +112,7 @@ async function month(serverId) {
         if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
         else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
         else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
-    }
+  }
 
     return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
@@ -957,7 +957,7 @@ client.on("interactionCreate", async interaction => {
     // temporary help command, will be updated later.
     else if (commandName === "help") {
         await interaction.deferReply();
-        await interaction.editReply("```Slash Commands:\n/register add <id>\n/register remove <id>\n/register list\n/channels\n/setchannel\n/unsetchannel\n/help```");
+        await interaction.editReply("lorem ipsum");
     }
     else if (commandName === "all") {
         // what does this do?
