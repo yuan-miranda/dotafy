@@ -4,12 +4,12 @@ require("dotenv").config();
 const commands = [
     {
         name: 'help',
-        description: 'Get help on how to use the bot.',
+        description: 'Sends a help message on how to use the bot.',
         options: []
     },
     {
         name: 'channels',
-        description: 'List all the channels that are registered for logging messages.',
+        description: 'List all the channels in this server.',
         options: []
     },
     {
@@ -24,11 +24,11 @@ const commands = [
                 required: true,
                 choices: [
                     {
-                        name: 'All bot messages',
+                        name: 'All results (match, auto /day, /week, /month)',
                         value: 'all'
                     },
                     {
-                        name: 'Match results channel',
+                        name: 'Match results',
                         value: 'match'
                     },
                     {
@@ -49,12 +49,12 @@ const commands = [
     },
     {
         name: 'unsetchannel',
-        description: 'Unset the channel for logging messages. Must be on the channel you want to unset. (admin only)',
+        description: 'Remove the channel for logging messages. Must be on the channel you want to remove. (admin only)',
         options: []
     },
     {
         name: 'register',
-        description: 'Register a user',
+        description: 'Add, remove or list dota accounts.',
         options: [
             {
                 name: 'add',
@@ -63,7 +63,7 @@ const commands = [
                 options: [
                     {
                         name: 'id',
-                        description: 'Steam or Dota 2 ID. If you provide the Dota 2 ID it will be converted to Steam ID.',
+                        description: 'Steam Id or Dota 2 Id.',
                         type: 3,
                         required: true
                     }
@@ -76,7 +76,7 @@ const commands = [
                 options: [
                     {
                         name: 'id',
-                        description: 'Steam or Dota 2 ID to remove. If you provide the Dota 2 ID it will be converted to Steam ID.',
+                        description: 'Steam Id or Dota 2 Id.',
                         type: 3,
                         required: true
                     }
@@ -94,17 +94,17 @@ const commands = [
                         choices: [
                             {
                                 name: 'all',
-                                description: 'List all the users.',
+                                description: 'List all users. (default)',
                                 value: 'all'
                             },
                             {
                                 name: 'public',
-                                description: 'List all the users who have their match history public.',
+                                description: 'List all the users that has public match history.',
                                 value: 'public'
                             },
                             {
                                 name: 'private',
-                                description: 'List all the users who have their match history private.',
+                                description: 'List all the users that has private match history.',
                                 value: 'private'
                             }
                         ]
@@ -115,16 +115,16 @@ const commands = [
     },
     {
         name: 'all',
-        description: 'Get the matches played today.',
+        description: '(Currently not working)',
         options: []
     },
     {
         name: 'match',
-        description: 'Get the matches played by the player.',
+        description: 'Get the most recent match of the user.',
         options: [
             {
                 name: 'id',
-                description: 'Steam ID of the player.',
+                description: 'Steam Id or Dota 2 Id.',
                 type: 3,
                 required: true
             }
@@ -132,26 +132,26 @@ const commands = [
     },
     {
         name: 'day',
-        description: 'Get the matches played today.',
+        description: 'Get the daily standings on the server.',
         options: []
     },
     {
         name: 'week',
-        description: 'Get the matches played this week.',
+        description: 'Get the weekly standings on the server.',
         options: []
     },
     {
         name: 'month',
-        description: 'Get the matches played this month.',
+        description: 'Get the monthly standings on the server.',
         options: []
     },
     {
         name: 'dota2id',
-        description: 'Convert Steam ID to Dota 2 ID.',
+        description: 'Convert the valid steam id to its dota 2 id.',
         options: [
             {
                 name: 'id',
-                description: 'Steam ID of the player.',
+                description: 'Steam Id.',
                 type: 3,
                 required: true
             }
@@ -159,11 +159,11 @@ const commands = [
     },
     {
         name: 'steamid',
-        description: 'Convert Dota 2 ID to Steam ID.',
+        description: 'Convert the dota 2 id to its steam id. (It only convert but doesnt verify it)',
         options: [
             {
                 name: 'id',
-                description: 'Dota 2 ID of the player.',
+                description: 'Dota 2 Id.',
                 type: 3,
                 required: true
             }
@@ -171,11 +171,11 @@ const commands = [
     },
     {
         name: 'verifyid',
-        description: 'Verify the Steam ID of the player.',
+        description: 'Check if the steam id is valid.',
         options: [
             {
                 name: 'id',
-                description: 'Steam ID of the player.',
+                description: 'Steam Id.',
                 type: 3,
                 required: true
             }
