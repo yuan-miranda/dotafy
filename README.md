@@ -71,7 +71,7 @@ Check if the steam id is valid.
 ```
 git clone https://github.com/yuan-miranda/dotafy.git
 ```
-2. Download the following modules inside the `dissh` folder:
+2. Download the following modules inside the `dissh` directory:
 ```
 npm install dotenv canvas axios discord-bettermarkdown@latest discord.js -y
 ```
@@ -82,17 +82,17 @@ npm install dotenv canvas axios discord-bettermarkdown@latest discord.js -y
   - Scroll down and under the Privileged Gateway Intents, enable the following: ![image](https://github.com/yuan-miranda/dissh/assets/142481797/06396840-0b32-4056-a9aa-56cb44f4cc66)
   - And on the `OAuth2` section, go to `OAuth2 URL Generator`, and select `bot > Administrator` and copy the generated url and enter it on your browser to invite your bot on the server.
 4. Getting the Steam Web API key.
-  - Go to https://steamcommunity.com/dev and on this section on the image below, click the highlighted `by filling out this form` and log in with your Steam Account. ![image](https://github.com/yuan-miranda/dotafy/assets/142481797/7fe5de6e-a937-4fa0-8456-1c31ba6d2b10)
-  - And after logging in, you'll see this page, just enter anything you'd like for the name and hit register. ![image](https://github.com/yuan-miranda/dotafy/assets/142481797/5e626200-4639-4fed-9af2-f1a383e7de60)
-  - After that copy the API key that is shown after.
-5. Create a `.env` file inside the `src` folder with the following values.
+  - Go to https://steamcommunity.com/dev and on this section similar to the image below, click the highlighted `by filling out this form` and log in with your Steam Account. ![image](https://github.com/yuan-miranda/dotafy/assets/142481797/7fe5de6e-a937-4fa0-8456-1c31ba6d2b10)
+  - After logging in, you'll see this page, just enter anything you'd like for the name and hit register. ![image](https://github.com/yuan-miranda/dotafy/assets/142481797/5e626200-4639-4fed-9af2-f1a383e7de60)
+  - Copy the API key that is shown after.
+5. Create a `.env` file inside the `src` directory with the following values.
 ```
 # .env contents
 STEAM_API_KEY=YOUR_STEAM_WEB_API_KEY
 TOKEN=YOUR_DISCORD_BOT_TOKEN
 BOT_ID=YOUR_DISCORD_BOT_ID
 ```
-6. To run the bot, run the following commands inside the `src` folder.
+6. To run the bot, execute the following commands inside the `src` directory.
 ```
 node register_commands.js
 node main.js
@@ -100,8 +100,3 @@ node main.js
 
 ## Credits:
 This project is mostly inspired by [Dota Sentry](https://dotasentry.net/) and [MangoByte](https://github.com/mdiller/MangoByte).
-
-## Your done!
-DM me in discord for questions about the setups, ill gladly help.
-
-https://discord.com/users/830369392453615636
