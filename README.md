@@ -31,7 +31,7 @@ Remove the registered user.
 /register remove <id>
 ```
 List registered users.
-> leave the option blank and it will output all users.<br>
+> Leave the option blank and it will output all users.<br>
 ```
 /register list [<all | public | private>]
 ```
