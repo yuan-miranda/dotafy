@@ -43,9 +43,12 @@ let monthlyStandings = {};
 function formatStanding(standing) {
     let users = Object.keys(standing);
 
-    // sort the user based on their win/lose ratio
     users.sort((a, b) => {
-        return standing[b].winLoseRatio - standing[a].winLoseRatio;
+        // prioritize win
+        // return standing[b].win - standing[a].win;
+        
+        // prioritize win - lose difference 
+        return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose);
     });
 
     // convert the sorted array back to an object
@@ -68,10 +71,13 @@ async function day(serverId) {
         if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
         let player = dailyStandings[serverId][steamId];
+        let playerWin = player.win;
+        let playerLose = player.lose;
+        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
-        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
     }
 
     return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
@@ -88,10 +94,13 @@ async function week(serverId) {
         if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
         let player = weeklyStandings[serverId][steamId];
-        
-        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
-        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
+        let playerWin = player.win;
+        let playerLose = player.lose;
+        let playerWinLoseRatio = player.winLoseRatio;
+
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
    }
 
     return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
@@ -108,10 +117,13 @@ async function month(serverId) {
         if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
     
         let player = monthlyStandings[serverId][steamId];
+        let playerWin = player.win;
+        let playerLose = player.lose;
+        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (player.win > player.lose) topPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.green;
-        else if (player.win < player.lose) bottomPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${player.win} ${player.lose} ${player.winLoseRatio.toFixed(2)} ${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
   }
 
     return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
@@ -320,11 +332,11 @@ function loadChannelTypeOf(serverId, channelId) {
 }
 
 // initialize the servers.json file and the initial folder structure.
-function initalizeServerJsonFile() {
+function initializeFolders() {
     fs.mkdirSync(`./data/server`, { recursive: true }, () => {});
     fs.mkdirSync(`./data/api_fetched`, { recursive: true }, () => {});
     fs.mkdirSync(`./data/banner`, { recursive: true }, () => {});
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
+    if (!fs.existsSync(`./data/server/servers.json`)) fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
 }
 
 // register the steam id and also channels that are registered in the server specified. (if there are any)
@@ -696,8 +708,7 @@ const client = new Client({
 
 client.once("ready", async () => {
     console.log(`${client.user.tag} is online.`);
-
-    if (!fs.existsSync(`./data/server/servers.json`)) initalizeServerJsonFile();
+    initializeFolders();
 
     gameModes = await getDota2GameModes();
     dota2Heroes = await getDota2Heroes();
@@ -831,15 +842,18 @@ client.on("interactionCreate", async interaction => {
     if (!interaction.isCommand() && !interaction.isButton()) return;
     const { commandName, options } = interaction;
 
+    const serverId = interaction.guild.id;
+    const channelId = interaction.channel.id;
+
     // your register a user here, either its your account or someone else, its valid.
     // so does your account id also. In this part when you /register add, it adds the id
     // on the server where you are currenyly on.
     if (commandName === "register") {
         const subCommand = options.getSubcommand();
         if (subCommand === "add") {
-            await interaction.deferReply();
+            await interaction.deferReply({ ephemeral: true});
             let steamId = options.getString("id");
-            const serverId = interaction.guild.id;
+            if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
             
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // convert the dota 2 id to steam id.
             if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) {
@@ -854,14 +868,13 @@ client.on("interactionCreate", async interaction => {
                 await interaction.followUp("Error: Steam ID already registered in this server.");
                 return;
             }
-
             registerSteamId(steamId, serverId);
             await interaction.followUp("Steam ID registered successfully.");
         }
         else if (subCommand === "remove") {
-            await interaction.deferReply();
+            await interaction.deferReply({ ephemeral: true});
             let steamId = options.getString("id");
-            const serverId = interaction.guild.id;
+            if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
 
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // conver the dota 2 id to steam id.
             if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Error: Invalid Steam ID.");
@@ -872,9 +885,8 @@ client.on("interactionCreate", async interaction => {
             }
         }
         else if (subCommand === "list") {
-            await interaction.deferReply();
+            await interaction.deferReply({ ephemeral: true});
             const userType = options.getString("type") || "all";
-            const serverId = interaction.guild.id;
             const registeredSteamIds = loadRegisteredSteamIdsOf(serverId);
             
             if (registeredSteamIds.length === 0) {
@@ -883,19 +895,21 @@ client.on("interactionCreate", async interaction => {
             }
             
             let message = "";
+            let dota2IdPadding = Math.max(...registeredSteamIds.map(id => getDota2IdBySteamId(id).length)) + 4;
+            let steamIdPadding = Math.max(...registeredSteamIds.map(id => id.length)) + 4;
             for (let steamId of registeredSteamIds) {
                 const isHistoryPublic = await isMatchHistoryPublic(steamId);
-                if (userType === "all") message += `(${getDota2IdBySteamId(steamId)}) ${await getPlayerName(steamId)}\n`;
-                else if (userType === "public" && isHistoryPublic) message += `(${getDota2IdBySteamId(steamId)}) ${await getPlayerName(steamId)}\n`;
-                else if (userType === "private" && !isHistoryPublic) message += `(${getDota2IdBySteamId(steamId)}) ${await getPlayerName(steamId)}\n`;
+                const playerName = await getPlayerName(steamId);
+                const dota2Id = getDota2IdBySteamId(steamId);
+                if (userType === "all") message += `${dota2Id.padEnd(dota2IdPadding)}${steamId.padEnd(steamIdPadding)}${playerName}\n`;
+                else if (userType === "public" && isHistoryPublic) message += `${dota2Id.padEnd(dota2IdPadding)}${steamId.padEnd(steamIdPadding)}${playerName}\n`;
+                else if (userType === "private" && !isHistoryPublic) message += `${dota2Id.padEnd(dota2IdPadding)}${steamId.padEnd(steamIdPadding)}${playerName}\n`;
             }
-            await interaction.editReply(message);
+            await interaction.editReply(`\`\`\`${"Dota 2 Id".padEnd(dota2IdPadding)}${"Steam Id".padEnd(steamIdPadding)}Player name\n${message}\`\`\``);
         }
     }
     else if (commandName === "channels") {
-        await interaction.deferReply();
-        const serverId = interaction.guild.id;
-    
+        await interaction.deferReply({ ephemeral: true});    
         if (loadAllRegisteredChannelsOf(serverId).length === 0) {
             await interaction.editReply("Error: No channels registered on this server.");
             return;
@@ -907,19 +921,17 @@ client.on("interactionCreate", async interaction => {
         const dayChannels = registeredChannelIds["day"].map(id => client.channels.cache.get(id).name);
         const weekChannels = registeredChannelIds["week"].map(id => client.channels.cache.get(id).name);
         const monthChannels = registeredChannelIds["month"].map(id => client.channels.cache.get(id).name);
-        const channelNames = `Registered Channels:\n All: ${allChannels.join(", ")}\n Match: ${matchChannels.join(", ")}\n Day: ${dayChannels.join(", ")}\n Week: ${weekChannels.join(", ")}\n Month: ${monthChannels.join(", ")}`;
+        const channelNames = `\`\`\`${"All".padEnd(9)}${allChannels.join(", ")}\n${"Match".padEnd(9)}${matchChannels.join(", ")}\n${"Day".padEnd(9)}${dayChannels.join(", ")}\n${"Week".padEnd(9)}${weekChannels.join(", ")}\n${"Month".padEnd(9)}${monthChannels.join(", ")}\`\`\``;
         await interaction.editReply(channelNames);
     }
     else if (commandName === "setchannel") {
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true});
 
         if (!interaction.member.permissions.has("1221426032817733662")) {
             await interaction.editReply("Error: You must be an admin to set a channel.");
             return;
         }
 
-        const channelId = interaction.channel.id;
-        const serverId = interaction.guild.id;
         const channelType = options.getString("type");
 
         if (isChannelRegisteredAt(serverId, channelId, channelType)) {
@@ -942,9 +954,7 @@ client.on("interactionCreate", async interaction => {
         }
     }
     else if (commandName === "unsetchannel") {
-        await interaction.deferReply();
-        const channelId = interaction.channel.id;
-        const serverId = interaction.guild.id;
+        await interaction.deferReply({ ephemeral: true});
         const channelType = loadChannelTypeOf(serverId, channelId);
 
         if (!interaction.member.permissions.has("1221426032817733662")) await interaction.editReply("Error: You must be an admin to unset a channel.");
@@ -956,51 +966,77 @@ client.on("interactionCreate", async interaction => {
     }
     // temporary help command, will be updated later.
     else if (commandName === "help") {
-        await interaction.deferReply();
-        await interaction.editReply("lorem ipsum");
-    }
-    else if (commandName === "all") {
-        // what does this do?
+        await interaction.reply({ content: `**Slash Commands**
+        \n**/help**
+        \t\tSends a help message on how to use the bot.
+        \n**/channels**
+        \t\tList all the registered channels on this server.
+        \n**/setchannel type <all | match | day | week | month>**
+        \t\tSet the channel for logging messages. Must be on the channel you want to set. (admin only)
+        \n**/unsetchannel**
+        \t\tRemove the channel for logging messages. Must be on the channel you want to remove. (admin only)
+        \n**/register add <id>**
+        \t\tRegister a user.
+        \n**/register remove <id>**
+        \t\tRemove the registered user.
+        \n**/register list [<all | public | private>]**
+        \t\tList registered users. Leave the option blank and it will output all users.
+        \n**/match <id>**
+        \t\tGet the most recent match of the user.
+        \n**/day**
+        \t\tGet the daily standings on the server.
+        \n**/week**
+        \t\tGet the weekly standings on the server.
+        \n**/month**
+        \t\tGet the monthly standings on the server.
+        \n**/dota2id <id>**
+        \t\tConvert a valid Steam ID to its Dota 2 ID.
+        \n**/steamid <id>**
+        \t\tConvert the Dota 2 ID to its Steam ID. Only convert the Dota 2 ID to its Steam ID equivalent.
+        \n**/verifyid <id>**
+        \t\tCheck if the Steam ID is valid.
+        `, ephemeral: true});
     }
     else if (commandName === "match") {
-        const serverId = interaction.guild.id;
-        const channelId = interaction.channel.id;
+        await interaction.deferReply({ ephemeral: true});
         let steamId = options.getString("id");
+        if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
         if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId);
-        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.reply("Error: Steam ID not registered on this server.");
-        else if (!await isMatchHistoryPublic(steamId)) await interaction.reply("Error: Match history is private.");
+        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.editReply("Error: Steam ID not registered on this server.");
+        else if (!await isMatchHistoryPublic(steamId)) await interaction.editReply("Error: Match history is private.");
         else await sendGameResult(steamId, [channelId], isDuplicate=true);
     }
     // the rest are auto commands.
     else if (commandName === "day") {
-        const serverId = interaction.guild.id;
-        const output = await day(serverId);
-        await interaction.reply(output);
+        await interaction.deferReply({ ephemeral: true});
+        await interaction.editReply(await day(serverId));
     }
     else if (commandName === "week") {
-        const serverId = interaction.guild.id;
-        const output = await week(serverId);
-        await interaction.reply(output);
+        await interaction.deferReply({ ephemeral: true});
+        await interaction.editReply(await week(serverId));
     }
     else if (commandName === "month") {
-        const serverId = interaction.guild.id;
-        const output = await month(serverId);
-        await interaction.reply(output);
+        await interaction.deferReply({ ephemeral: true});
+        await interaction.editReply(await month(serverId));
     }
     else if (commandName === "dota2id") {
         const steamId = options.getString("id");
-        if (steamId.length !== 17) await interaction.reply("Error: Invalid Steam ID length. (must be 17 digits)");
-        else await interaction.reply(getDota2IdBySteamId(steamId));
+        if (isNaN(steamId)) return await interaction.reply({ content: "Error: ID must be a number.", ephemeral: true});
+        if (steamId.length !== 17) return await interaction.reply({ content: "Error: Invalid Steam ID length. (must be 17 digits)", ephemeral: true});
+        else await interaction.reply({ content: getDota2IdBySteamId(steamId), ephemeral: true});
     }
     else if (commandName === "steamid") {
         const dota2Id = options.getString("id");
-        await interaction.reply(getSteamIdByDota2Id(dota2Id));
+        if (isNaN(dota2Id)) return await interaction.reply({ content: "Error: ID must be a number.", ephemeral: true});
+        else await interaction.reply({ content: getSteamIdByDota2Id(dota2Id), ephemeral: true});
     }
     else if (commandName === "verifyid") {
+        await interaction.deferReply({ ephemeral: true});
         const steamId = options.getString("id");
-        if (steamId.length !== 17) await interaction.reply("Error: Invalid Steam ID length. (must be 17 digits)");
-        else if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.reply("Error: Invalid Steam ID.");
-        else await interaction.reply("Steam ID is invalid.");
+        if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
+        if (steamId.length !== 17) return await interaction.editReply("Error: Invalid Steam ID length. (must be 17 digits)");
+        else if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Error: Invalid Steam ID.");
+        else await interaction.editReply(`The provided Steam ID is valid. You can view the profile at: https://steamcommunity.com/profiles/${steamId}`);
     }
     else if (interaction.isButton()) {
         const steamId = interaction.message.embeds[0].author.url.replace("https://steamcommunity.com/profiles/", "");
