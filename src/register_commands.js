@@ -114,6 +114,32 @@ const commands = [
         ]
     },
     {
+        name: 'streaks',
+        description: 'Get the list of win and lose streaks of players on the server.',
+        options: [
+            {
+                name: 'type',
+                description: 'Type of streak to get.',
+                type: 3,
+                required: false,
+                choices: [
+                    {
+                        name: 'All streaks',
+                        value: 'all'
+                    },
+                    {
+                        name: 'Win streaks',
+                        value: 'win'
+                    },
+                    {
+                        name: 'Lose streaks',
+                        value: 'lose'
+                    }
+                ]
+            }
+        ]
+    },
+    {
         name: 'all',
         description: '(Currently not working)',
         options: []
