@@ -56,6 +56,10 @@ Get the monthly standings on the server.
 ```
 /month
 ```
+Get the yearly standings on the server.
+```
+/year
+```
 Convert a valid steam id to its dota 2 id.
 ```
 /dota2id <id>
