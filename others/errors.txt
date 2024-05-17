@@ -11,6 +11,9 @@ SOLVED (i think):
     Bot doesnt send each players match result if theyre on the same team
     /register or any mention of getDota2IdBySteamId() or vice versa having non type int value will crash the bot
     Still not sure if auto /week and /month is working correctly
+    Still using interval as a timer for auto standings
 
 ISSUES:
-Still using interval as a timer for auto standings
+Has no exit save data/clean up
+Update game result image (dota like design)
+Some outputs are not embeds
