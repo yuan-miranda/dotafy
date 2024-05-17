@@ -86,6 +86,7 @@ async function day(serverId) {
         else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
         else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
     }
+    if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
     return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
@@ -108,6 +109,7 @@ async function week(serverId) {
         else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
         else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
     }
+    if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
     return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
@@ -130,6 +132,7 @@ async function month(serverId) {
         else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
         else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
     }
+    if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
     return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
@@ -154,7 +157,8 @@ async function getStreaksOf(serverId, streakType) {
     if (streakType === "win" && winStreakPlayers !== "") return `\`\`\`ansi\nWin streaks\n${winStreakPlayers}\n\`\`\``;
     else if (streakType === "lose" && loseStreakPlayers !== "") return `\`\`\`ansi\nLose streaks\n${loseStreakPlayers}\n\`\`\``;
     else if (streakType === "all" && winStreakPlayers !== "" && loseStreakPlayers !== "") return `\`\`\`ansi\nAll streaks\n${winStreakPlayers}${loseStreakPlayers}\n\`\`\``;
-    else return "No streaks found.";
+    else return "No data found.";
+
 }
 
 // return the most recent match played.
@@ -279,6 +283,12 @@ async function getPlayerName(steamId) {
     return playerData.response.players[0].personaname;
 }
 
+async function getServerName(serverId) {
+    const server = client.guilds.cache.get(serverId);
+    console.log(server.name);
+    return server ? server.name : "";
+}
+
 // return the last 100 matches played by the user.
 async function isMatchHistoryPublic(steamId) {
     const matchHistory = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=100`);
@@ -320,7 +330,7 @@ function isChannelRegisteredAt(serverId, channelId, channelType) {
 function loadWhereSteamIdRegistered(steamId) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const filteredServers = servers.filter(obj => obj.registeredSteamIds.includes(steamId));
-    return filteredServers.map(obj => obj.serverId);
+    return filteredServers.map(obj => obj.serverName);
 }
 
 // laod all the registered channels of the server specified.
@@ -365,7 +375,7 @@ function initializeFolders() {
 }
 
 // register the steam id and also channels that are registered in the server specified. (if there are any)
-function registerSteamId(steamId, serverId) {
+async function registerSteamId(steamId, serverId) {
     let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
 
@@ -373,6 +383,7 @@ function registerSteamId(steamId, serverId) {
     if (!server) {
         server = {
             serverId: serverId,
+            serverName: await getServerName(serverId),
             registeredSteamIds: [],
             registeredChannelIds: {
                 all: [],
@@ -397,12 +408,13 @@ function removeRegisteredSteamIdOf(serverId, steamId) {
 }
 
 // register the channel id at the server specified.
-function registerChannel(channelId, serverId, channelType) {
+async function registerChannel(channelId, serverId, channelType) {
     let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
     if (!server) {
         server = {
             serverId: serverId,
+            serverName: await getServerName(serverId),
             registeredSteamIds: [],
             registeredChannelIds: {
                 all: [],
@@ -886,11 +898,8 @@ client.on("interactionCreate", async interaction => {
                 const steamIdRegisteredLocations = loadWhereSteamIdRegistered(steamId);
                 await interaction.editReply(`Notice: Steam ID already registered in the following servers: ${steamIdRegisteredLocations.join(", ")}`);
             }
-            if (isSteamIdRegisteredAt(interaction.guild.id, steamId)) { // check only in the server
-                await interaction.followUp("Steam ID already registered in this server.");
-                return;
-            }
-            registerSteamId(steamId, serverId);
+            if (isSteamIdRegisteredAt(interaction.guild.id, steamId)) return;
+            await registerSteamId(steamId, serverId);
             await interaction.followUp("Steam ID registered successfully.");
         }
         else if (subCommand === "remove") {
@@ -959,7 +968,7 @@ client.on("interactionCreate", async interaction => {
             case "week":
             case "month":
                 await interaction.editReply(`Channel set as auto /${channelType}.`);
-                registerChannel(channelId, serverId, channelType);
+                await registerChannel(channelId, serverId, channelType);
                 break;
             default:
                 await interaction.editReply("Invalid channel type.");
@@ -994,6 +1003,8 @@ client.on("interactionCreate", async interaction => {
         \t\tList registered users. Leave the option blank and it will output all users.
         \n**/match <id>**
         \t\tGet the most recent match of the user.
+        \n**/streaks [<win | lose | all>]**
+        \t\tTo enter the streak rank, user must be >= 3 of win/lose streak. Default value without the type will output both win and lose streak.
         \n**/day**
         \t\tGet the daily standings on the server.
         \n**/week**
