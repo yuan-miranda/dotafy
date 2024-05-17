@@ -32,6 +32,10 @@ const commands = [
                         value: 'match'
                     },
                     {
+                        name: 'auto /streaks',
+                        value: 'streaks'
+                    },
+                    {
                         name: 'auto /day',
                         value: 'day'
                     },
@@ -42,6 +46,10 @@ const commands = [
                     {
                         name: 'auto /month',
                         value: 'month'
+                    },
+                    {
+                        name: 'auto /year',
+                        value: 'year'
                     }
                 ]
             }
@@ -169,6 +177,11 @@ const commands = [
     {
         name: 'month',
         description: 'Get the monthly standings on the server.',
+        options: []
+    },
+    {
+        name: 'year',
+        description: 'Get the yearly standings on the server.',
         options: []
     },
     {
