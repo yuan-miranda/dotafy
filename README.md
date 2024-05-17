@@ -39,6 +39,11 @@ Get the most recent match of the user.
 ```
 /match <id>
 ```
+Get the streaks of players.
+> To enter the streak rank, user must be >= 3 of win/lose streak. Default value without the type will output both win and lose streak.<br>
+```
+/streaks type [<all | win | lose>]
+```
 Get the daily standings on the server.
 ```
 /day
