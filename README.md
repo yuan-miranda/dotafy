@@ -78,7 +78,7 @@ git clone https://github.com/yuan-miranda/dotafy.git
 ```
 2. Download the following modules inside the `dissh` directory:
 ```
-npm install dotenv canvas axios discord-bettermarkdown@latest discord.js -y
+npm install dotenv canvas axios node-cron discord-bettermarkdown@latest discord.js -y
 ```
 3. Setting up the discord bot:
   - Go to https://discord.com/developers/applications and select or create a bot.
