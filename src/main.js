@@ -1,6 +1,7 @@
 const fs = require("fs");
 const axios = require("axios");
 const bmd = require("discord-bettermarkdown");
+const cron = require("node-cron");
 const { createCanvas, loadImage } = require("canvas");
 require("dotenv").config();
 
@@ -28,6 +29,18 @@ let gameModes = {};
 // key: messageId, value: steamId
 let messagePlayerIds = {};
 
+// list of player win and lose streaks.
+// playerStreaks = {
+//     serverId: {
+//         steamId: {
+//             win: 0,
+//             lose: 0
+//         }, ...
+//     }, ...
+// };
+let playerStreaks = {};
+
+// list of daily, weekly, and monthly standings.
 let dailyStandings = {};
 let weeklyStandings = {};
 let monthlyStandings = {};
@@ -39,24 +52,18 @@ let monthlyStandings = {};
 //             steamId: {win: 0, lose: 0}, ...
 //         }, ...
 //     }
-// }
+// };
 function formatStanding(standing) {
     let users = Object.keys(standing);
 
-    users.sort((a, b) => {
-        // prioritize win
-        // return standing[b].win - standing[a].win;
-        
-        // prioritize win - lose difference 
-        return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose);
-    });
+    // prioritize win - lose difference 
+    users.sort((a, b) => { return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose); });
 
     // convert the sorted array back to an object
     standing = users.reduce((obj, user) => {
         obj[user] = standing[user];
         return obj;
     }, {});
-
     return standing;
 }
 
@@ -75,12 +82,11 @@ async function day(serverId) {
         let playerLose = player.lose;
         let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
     }
-
-    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the weekly standing of the server specified.
@@ -98,12 +104,11 @@ async function week(serverId) {
         let playerLose = player.lose;
         let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
-   }
-
-    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+    }
+    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the monthly standing of the server specified.
@@ -121,12 +126,35 @@ async function month(serverId) {
         let playerLose = player.lose;
         let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(6)} ${playerLose.toString().padEnd(6)} ${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(6)}${playerLose.toString().padEnd(6)}${playerWinLoseRatio.toFixed(2).toString().padEnd(6)} ${await getPlayerName(steamId)}\n`.white;
-  }
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+    }
+    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+}
 
-    return `\`\`\`ansi\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+async function getStreaksOf(serverId, streakType) {
+    if (!playerStreaks[serverId]) playerStreaks[serverId] = {};
+    const steamIds = loadRegisteredSteamIdsOf(serverId);
+    let winStreakPlayers = "";
+    let loseStreakPlayers = "";
+
+    for (let steamId of steamIds){
+        if (!playerStreaks[serverId][steamId]) playerStreaks[serverId][steamId] = {win: 0, lose: 0};
+
+        let playerName = await getPlayerName(steamId);
+        let player = playerStreaks[serverId][steamId];
+        let playerWin = player.win;
+        let playerLose = player.lose;
+
+        if (playerWin >= 3) winStreakPlayers += `+${playerWin.toString().padEnd(8)}${playerName}\n`;
+        else if (playerLose >= 3) loseStreakPlayers += `-${playerLose.toString().padEnd(8)}${playerName}\n`;
+
+    }
+    if (streakType === "win" && winStreakPlayers !== "") return `\`\`\`ansi\nWin streaks\n${winStreakPlayers}\n\`\`\``;
+    else if (streakType === "lose" && loseStreakPlayers !== "") return `\`\`\`ansi\nLose streaks\n${loseStreakPlayers}\n\`\`\``;
+    else if (streakType === "all" && winStreakPlayers !== "" && loseStreakPlayers !== "") return `\`\`\`ansi\nAll streaks\n${winStreakPlayers}${loseStreakPlayers}\n\`\`\``;
+    else return "No streaks found.";
 }
 
 // return the most recent match played.
@@ -215,7 +243,6 @@ function getSteamUserAvatar(steamId) {
 async function getDota2Heroes() {
     const response = await axios.get('https://api.opendota.com/api/heroes');
     let heroObjects = {};
-
     for (let hero of response.data) {
         heroObjects[hero.id] = [
             hero.localized_name,
@@ -229,7 +256,6 @@ async function getDota2Heroes() {
 async function getDota2GameModes() {
     const response = await axios.get('https://api.opendota.com/api/constants/game_mode');
     let gameModeObjects = {};
-
     for (let gameMode of Object.values(response.data)) gameModeObjects[gameMode.id] = gameMode.name.split("_").splice(2).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
     return gameModeObjects;
 }
@@ -308,7 +334,6 @@ function loadAllRegisteredChannelsOf(serverId) {
     const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     let allChannels = {};
-
     if (!server) return {};
     for (let key in server.registeredChannelIds) {
         if (!allChannels[key]) allChannels[key] = [];
@@ -375,7 +400,6 @@ function removeRegisteredSteamIdOf(serverId, steamId) {
 function registerChannel(channelId, serverId, channelType) {
     let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
-
     if (!server) {
         server = {
             serverId: serverId,
@@ -414,16 +438,13 @@ function removeRegisteredChannelOf(serverId, channelId, channelType) {
 
 async function generateBanner(matchData) {
     if (fs.existsSync(`./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`)) return `./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
-
     const ratio = 1.85;
     const canvas_width = 800;
     const canvas_height = Math.round(canvas_width / ratio);
     const image_width = 256;
     const image_height = 144;
-    
     const spacing = 15;
     const circleRadius = 16;
-
     const canvas = createCanvas(canvas_width, canvas_height);
     const context = canvas.getContext("2d");
 
@@ -440,7 +461,7 @@ async function generateBanner(matchData) {
 
     // create radiant team part
     context.fillStyle = "green";
-    context.fillRect        (0,           45 + spacing, spacing, image_height * 5 / 4);
+    context.fillRect(0, 45 + spacing, spacing, image_height * 5 / 4);
 
     // header text
     context.font = "bold 15px Arial";
@@ -496,8 +517,7 @@ async function generateBanner(matchData) {
 
     // create dire team part
     context.fillStyle = "red";
-    context.fillRect        (0,           15 + canvas.height / 2 + spacing, spacing, image_height * 5 / 4);
-
+    context.fillRect(0, 15 + canvas.height / 2 + spacing, spacing, image_height * 5 / 4);
     for (let [i, player] of matchData.teamSummary.dire.players.entries()) {
         const image = await loadImage(player.playerHeroIconUrl);
 
@@ -559,11 +579,10 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
         .setLabel("Next")
         .setStyle(ButtonStyle.Secondary);
     const row = new ActionRowBuilder().addComponents(previous, next);
-    
-    const player = matchData.playerSummary;
-
-    console.time("generateBanner")
     let attachment = new AttachmentBuilder();
+
+    const player = matchData.playerSummary;
+    console.time("generateBanner");
     try {
         attachment.setFile(await generateBanner(matchData));
         attachment.setName("banner.png");
@@ -588,7 +607,6 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
     // when button is clicked, it will send out a new message and delete the old message. (prevent spammed messages)
     if (messageId) {
         const oldMessage = await channel.messages.fetch(messageId);
-        
         messagePlayerIds[newMessage.id] = messagePlayerIds[messageId];
         lastMatchIndex[newMessage.id] = lastMatchIndex[messageId];
         await oldMessage.delete();
@@ -606,7 +624,6 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
 async function sendGameResult(steamId, registeredChannels, isDuplicate=true, recentMatch=null, messageId=null) {
     await Promise.all(registeredChannels.map(async (channelId) => {
         const serverId = client.channels.cache.get(channelId).guild.id;
-    
         if (recentMatch === null) {
             if (!await isMatchHistoryPublic(steamId)) return;
             recentMatch = await getLastMatch(steamId);
@@ -620,6 +637,7 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         if (!isDuplicate && lastMatchIds[matchId][channelId].includes(steamId)) return; 
         lastMatchIds[matchId][channelId] = [...lastMatchIds[matchId][channelId], steamId];
 
+        // fetch the match details from the api.
         const matchDetails = (await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`)).data;
         fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
     
@@ -631,7 +649,6 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
             radiant: await getTeamPlayerDetailsOf("radiant", matchDetails),
             dire: await getTeamPlayerDetailsOf("dire", matchDetails),
         }
-
         const playerName = await getPlayerName(steamId);
         const player = teamPlayerDetails.radiant.find(player => player.playerName === playerName) || teamPlayerDetails.dire.find(player => player.playerName === playerName);
 
@@ -682,9 +699,18 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         if (!isDuplicate) {
             if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
             if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-
-            if (playerTeamIsWin) dailyStandings[serverId][steamId].win += 1; // win
-            else dailyStandings[serverId][steamId].lose += 1;                // lose
+            if (!playerStreaks[serverId]) playerStreaks[serverId] = {};
+            if (!playerStreaks[serverId][steamId]) playerStreaks[serverId][steamId] = {win: 0, lose: 0};
+            if (playerTeamIsWin) {
+                dailyStandings[serverId][steamId].win += 1;
+                playerStreaks[serverId][steamId].win += 1;
+                playerStreaks[serverId][steamId].lose = 0;
+            }
+            else {
+                dailyStandings[serverId][steamId].lose += 1;
+                playerStreaks[serverId][steamId].win = 0;
+                playerStreaks[serverId][steamId].lose += 1;
+            }
             dailyStandings[serverId][steamId].winLoseRatio = dailyStandings[serverId][steamId].win / (dailyStandings[serverId][steamId].lose || 1);
         }
         if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
@@ -692,8 +718,81 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
     }));
 }
 
-/* ==================================================================================================== */
-// The following code is for the Discord bot.
+async function scheduleUpdateDota2Objects() {
+    gameModes = await getDota2GameModes();
+    dota2Heroes = await getDota2Heroes();
+    dota2HeroIconsUrl = await getHeroIcons();
+}
+
+async function scheduleSendGameResults() {
+    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+        const steamIds = loadRegisteredSteamIdsOf(serverId);
+        if(steamIds.length === 0) return;
+        const registeredChannels = loadRegisteredChannelTypesOf(serverId, "match");
+        if (registeredChannels.length === 0) return;
+
+        for (const steamId of steamIds) await sendGameResult(steamId, registeredChannels, isDuplicate=false);
+        dailyStandings[serverId] = formatStanding(dailyStandings[serverId]);
+    }
+}
+
+async function scheduleDailyStandings() {
+    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+        const messageContent = await day(serverId);
+
+        // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].
+        for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+            if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
+            if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (dailyStandings[serverId] && dailyStandings[serverId][steamId]) {
+                weeklyStandings[serverId][steamId].win += dailyStandings[serverId][steamId].win;
+                weeklyStandings[serverId][steamId].lose += dailyStandings[serverId][steamId].lose;
+                weeklyStandings[serverId][steamId].winLoseRatio = weeklyStandings[serverId][steamId].win / (weeklyStandings[serverId][steamId].lose || 1);
+                dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            }
+        }
+        const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "day");
+        await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const channel = await client.channels.fetch(channelId);
+            await channel.send(messageContent);
+        }));
+    }
+}
+
+async function scheduleWeeklyStandings() {
+    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+        const messageContent = await week(serverId);
+
+        for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+            if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
+            if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (weeklyStandings[serverId] && weeklyStandings[serverId][steamId]) {
+                monthlyStandings[serverId][steamId].win += weeklyStandings[serverId][steamId].win;
+                monthlyStandings[serverId][steamId].lose += weeklyStandings[serverId][steamId].lose;
+                monthlyStandings[serverId][steamId].winLoseRatio = monthlyStandings[serverId][steamId].win / (monthlyStandings[serverId][steamId].lose || 1);
+                weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            }
+        }
+        const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "week");
+        await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const channel = await client.channels.fetch(channelId);
+            await channel.send(messageContent);
+        }));
+    }
+}
+
+async function scheduleMonthlyStandings() {
+    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+        const messageContent = await month(serverId);
+
+        for (let steamId of loadRegisteredSteamIdsOf(serverId)) if (monthlyStandings[serverId] && monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "month");
+        await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const channel = await client.channels.fetch(channelId);
+            await channel.send(messageContent);
+        }));
+    }
+}
 
 const { Client, GatewayIntentBits, ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder, AttachmentBuilder } = require("discord.js");
 
@@ -719,129 +818,53 @@ client.once("ready", async () => {
         const serverId = guild.id;
         const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
         const server = servers.find(obj => obj.serverId === serverId);
-        
         if (!server) return;
-        let registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
+
         // check each channels and remove the invalid ones.
+        let registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
         for (let key in registeredChannelIds) registeredChannelIds[key] = registeredChannelIds[key].filter(channelId => client.channels.cache.has(channelId));
         server.registeredChannelIds = registeredChannelIds;
         fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
     }));
 
     // update nescesarry dota 2 objects every 24 hours.
-    setInterval(async() => {
-        gameModes = await getDota2GameModes();
-        dota2Heroes = await getDota2Heroes();
-        dota2HeroIconsUrl = await getHeroIcons();
-    }, 1000 * 60 * 60 * 24); // 24 hours
-
+    cron.schedule("0 0 * * *", scheduleUpdateDota2Objects, { timezone: "Asia/Manila" }); // 24 hours
 
     // this fetches all the registered steam ids of all the servers.
-    // in this setInterval(), it will log the game results of each steam id.
-    setInterval(async() => {
-        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
-            const steamIds = loadRegisteredSteamIdsOf(serverId);
-            const channelType = "match";
-
-            if(steamIds.length === 0) return;
-            const registeredChannels = loadRegisteredChannelTypesOf(serverId, channelType);
-            if (registeredChannels.length === 0) return;
-            for (const steamId of steamIds) {
-                await sendGameResult(steamId, registeredChannels, isDuplicate=false);
-            }
-            dailyStandings[serverId] = formatStanding(dailyStandings[serverId]);
-        }
-    }, 1000 * 60 * 2); // 2 minutes
+    // it will log the new game results of each steam id, and ignore if the match has already been sent.
+    // but it still uses API call to fetch new matches. So it scales with the number of registered steam ids.
+    cron.schedule("*/2 * * * *", scheduleSendGameResults, { timezone: "Asia/Manila" }); // 2 minutes
 
     // auto commands for day, week, month
-    setInterval(async() => {
-        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
-            const messageContent = await day(serverId);
-
-            // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].
-            for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
-                if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-
-                if (dailyStandings[serverId] && dailyStandings[serverId][steamId]) {
-                    weeklyStandings[serverId][steamId].win += dailyStandings[serverId][steamId].win;
-                    weeklyStandings[serverId][steamId].lose += dailyStandings[serverId][steamId].lose;
-                    weeklyStandings[serverId][steamId].winLoseRatio = weeklyStandings[serverId][steamId].win / (weeklyStandings[serverId][steamId].lose || 1);
-
-                    dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-                }
-            }
-            
-            const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "day");
-            await Promise.all(registeredChannelIds.map(async (channelId) => {
-                const channel = await client.channels.fetch(channelId);
-                await channel.send(messageContent);
-            }));
-        }
-    }, 1000 * 60 * 60 * 24); // 24 hours 
-
-    setInterval(async() => {
-        for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
-            const messageContent = await week(serverId);
-
-            for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
-                if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-
-                if (weeklyStandings[serverId] && weeklyStandings[serverId][steamId]) {
-                    monthlyStandings[serverId][steamId].win += weeklyStandings[serverId][steamId].win;
-                    monthlyStandings[serverId][steamId].lose += weeklyStandings[serverId][steamId].lose;
-                    monthlyStandings[serverId][steamId].winLoseRatio = monthlyStandings[serverId][steamId].win / (monthlyStandings[serverId][steamId].lose || 1);
-
-                    weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-                }
-            }
-
-            const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "week");
-            await Promise.all(registeredChannelIds.map(async (channelId) => {
-                const channel = await client.channels.fetch(channelId);
-                await channel.send(messageContent);
-            }));
-        }
-    }, 1000 * 60 * 60 * 24 * 7); // 7 days 
-
-    setInterval(async() => {
-        setTimeout(async() => {
-            for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
-                const messageContent = await month(serverId);
-
-                for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
-                    if (monthlyStandings[serverId] && monthlyStandings[serverId][steamId]) {
-                        monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
-                    }
-                }
-
-                const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "month");
-                await Promise.all(registeredChannelIds.map(async (channelId) => {
-                    const channel = await client.channels.fetch(channelId);
-                    await channel.send(messageContent);
-                }));
-            }
-        }, 1000 * 60 * 60 * 24 * 15); // 30 days 
-    }, 1000 * 60 * 60 * 24 * 15);
+    cron.schedule("0 0 * * *", scheduleDailyStandings, { timezone: "Asia/Manila" }); // 24 hours
+    cron.schedule("0 0 * * 1", scheduleWeeklyStandings, { timezone: "Asia/Manila" }); // 7 days
+    cron.schedule("0 0 1 * *", scheduleMonthlyStandings, { timezone: "Asia/Manila" }); // 30 days
 });
 
 client.on("messageDelete", async (message) => {
-    if (messagePlayerIds[message.id]) {
-        delete messagePlayerIds[message.id];
-        delete lastMatchIndex[message.id];
-    }
+    if (!messagePlayerIds[message.id]) return;
+    delete messagePlayerIds[message.id];
+    delete lastMatchIndex[message.id];
+});
+
+client.on("guildDelete", async (guild) => {
+    const serverId = guild.id;
+    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const server = servers.find(obj => obj.serverId === serverId);
+    if (!server) return;
+    servers = servers.filter(obj => obj.serverId !== serverId);
+    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 });
 
 client.on("channelDelete", async (channel) => {
     const channelType = loadChannelTypeOf(channel.guild.id, channel.id);
+    if (!channelType) return;
     removeRegisteredChannelOf(channel.guild.id, channel.id, channelType);
 })
 
 client.on("interactionCreate", async interaction => {
     if (!interaction.isCommand() && !interaction.isButton()) return;
     const { commandName, options } = interaction;
-
     const serverId = interaction.guild.id;
     const channelId = interaction.channel.id;
 
@@ -853,11 +876,10 @@ client.on("interactionCreate", async interaction => {
         if (subCommand === "add") {
             await interaction.deferReply({ ephemeral: true});
             let steamId = options.getString("id");
-            if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
-            
+            if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // convert the dota 2 id to steam id.
             if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) {
-                await interaction.editReply("Error: Invalid Steam ID.");
+                await interaction.editReply("Invalid Steam ID.");
                 return;
             }
             if (isSteamIdRegistered(steamId)) { // check all servers
@@ -865,7 +887,7 @@ client.on("interactionCreate", async interaction => {
                 await interaction.editReply(`Notice: Steam ID already registered in the following servers: ${steamIdRegisteredLocations.join(", ")}`);
             }
             if (isSteamIdRegisteredAt(interaction.guild.id, steamId)) { // check only in the server
-                await interaction.followUp("Error: Steam ID already registered in this server.");
+                await interaction.followUp("Steam ID already registered in this server.");
                 return;
             }
             registerSteamId(steamId, serverId);
@@ -874,11 +896,11 @@ client.on("interactionCreate", async interaction => {
         else if (subCommand === "remove") {
             await interaction.deferReply({ ephemeral: true});
             let steamId = options.getString("id");
-            if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
+            if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
 
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // conver the dota 2 id to steam id.
-            if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Error: Invalid Steam ID.");
-            else if (!isSteamIdRegisteredAt(interaction.guild.id, steamId)) await interaction.editReply("Error: Steam ID not registered on this server.");
+            if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
+            else if (!isSteamIdRegisteredAt(interaction.guild.id, steamId)) await interaction.editReply("Steam ID not registered on this server.");
             else {
                 removeRegisteredSteamIdOf(serverId, steamId);
                 await interaction.editReply("Steam ID unregistered successfully.");
@@ -888,15 +910,11 @@ client.on("interactionCreate", async interaction => {
             await interaction.deferReply({ ephemeral: true});
             const userType = options.getString("type") || "all";
             const registeredSteamIds = loadRegisteredSteamIdsOf(serverId);
-            
-            if (registeredSteamIds.length === 0) {
-                await interaction.editReply("Error: No Steam IDs are registered on this server.");
-                return;
-            }
+            if (registeredSteamIds.length === 0) return await interaction.editReply("No Steam IDs are registered on this server.");
             
             let message = "";
-            let dota2IdPadding = Math.max(...registeredSteamIds.map(id => getDota2IdBySteamId(id).length)) + 4;
-            let steamIdPadding = Math.max(...registeredSteamIds.map(id => id.length)) + 4;
+            let dota2IdPadding = Math.max(...registeredSteamIds.map(id => getDota2IdBySteamId(id).length)) + 8;
+            let steamIdPadding = Math.max(...registeredSteamIds.map(id => id.length)) + 8;
             for (let steamId of registeredSteamIds) {
                 const isHistoryPublic = await isMatchHistoryPublic(steamId);
                 const playerName = await getPlayerName(steamId);
@@ -908,12 +926,16 @@ client.on("interactionCreate", async interaction => {
             await interaction.editReply(`\`\`\`${"Dota 2 Id".padEnd(dota2IdPadding)}${"Steam Id".padEnd(steamIdPadding)}Player name\n${message}\`\`\``);
         }
     }
+    else if (commandName === "streaks") {
+        await interaction.deferReply({ ephemeral: true});
+        const streakType = options.getString("type") || "all";
+        if (streakType === "win") await interaction.editReply(await getStreaksOf(serverId, "win"));
+        else if (streakType === "lose") await interaction.editReply(await getStreaksOf(serverId, "lose"));
+        else interaction.editReply(await getStreaksOf(serverId, "all"));
+    }
     else if (commandName === "channels") {
         await interaction.deferReply({ ephemeral: true});    
-        if (loadAllRegisteredChannelsOf(serverId).length === 0) {
-            await interaction.editReply("Error: No channels registered on this server.");
-            return;
-        }
+        if (loadAllRegisteredChannelsOf(serverId).length === 0) return await interaction.editReply("No channels registered on this server.");
 
         const registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
         const allChannels = registeredChannelIds["all"].map(id => client.channels.cache.get(id).name);
@@ -926,18 +948,9 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "setchannel") {
         await interaction.deferReply({ ephemeral: true});
-
-        if (!interaction.member.permissions.has("1221426032817733662")) {
-            await interaction.editReply("Error: You must be an admin to set a channel.");
-            return;
-        }
-
         const channelType = options.getString("type");
-
-        if (isChannelRegisteredAt(serverId, channelId, channelType)) {
-            await interaction.editReply("Error: Channel already registered.");
-            return;
-        }
+        if (!interaction.member.permissions.has("1221426032817733662")) return await interaction.editReply("You must be an admin to set a channel.");
+        if (isChannelRegisteredAt(serverId, channelId, channelType)) return await interaction.editReply("Channel already registered.");
         
         switch (channelType) {
             case "all":
@@ -949,22 +962,20 @@ client.on("interactionCreate", async interaction => {
                 registerChannel(channelId, serverId, channelType);
                 break;
             default:
-                await interaction.editReply("Error: Invalid channel type.");
+                await interaction.editReply("Invalid channel type.");
                 break;
         }
     }
     else if (commandName === "unsetchannel") {
         await interaction.deferReply({ ephemeral: true});
         const channelType = loadChannelTypeOf(serverId, channelId);
-
-        if (!interaction.member.permissions.has("1221426032817733662")) await interaction.editReply("Error: You must be an admin to unset a channel.");
-        else if (!isChannelRegisteredAt(serverId, channelId, channelType)) await interaction.editReply("Error: Channel is not registered.");
+        if (!interaction.member.permissions.has("1221426032817733662")) await interaction.editReply("You must be an admin to unset a channel.");
+        else if (!isChannelRegisteredAt(serverId, channelId, channelType)) await interaction.editReply("Channel is not registered.");
         else {
             removeRegisteredChannelOf(serverId, channelId, channelType);
             await interaction.editReply("Channel unregistered successfully.");
         }
     }
-    // temporary help command, will be updated later.
     else if (commandName === "help") {
         await interaction.reply({ content: `**Slash Commands**
         \n**/help**
@@ -995,15 +1006,18 @@ client.on("interactionCreate", async interaction => {
         \t\tConvert the Dota 2 ID to its Steam ID. Only convert the Dota 2 ID to its Steam ID equivalent.
         \n**/verifyid <id>**
         \t\tCheck if the Steam ID is valid.
+
+        > auto /day, /week, /month resets every 00:00 GMT+8.
         `, ephemeral: true});
     }
     else if (commandName === "match") {
         await interaction.deferReply({ ephemeral: true});
         let steamId = options.getString("id");
-        if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
+        if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
+
         if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId);
-        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.editReply("Error: Steam ID not registered on this server.");
-        else if (!await isMatchHistoryPublic(steamId)) await interaction.editReply("Error: Match history is private.");
+        if (!isSteamIdRegisteredAt(serverId, steamId)) await interaction.editReply("Steam ID not registered on this server.");
+        else if (!await isMatchHistoryPublic(steamId)) await interaction.editReply("Match history is private.");
         else await sendGameResult(steamId, [channelId], isDuplicate=true);
     }
     // the rest are auto commands.
@@ -1021,26 +1035,26 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "dota2id") {
         const steamId = options.getString("id");
-        if (isNaN(steamId)) return await interaction.reply({ content: "Error: ID must be a number.", ephemeral: true});
-        if (steamId.length !== 17) return await interaction.reply({ content: "Error: Invalid Steam ID length. (must be 17 digits)", ephemeral: true});
+        if (isNaN(steamId)) return await interaction.reply({ content: "ID must be a number.", ephemeral: true});
+        if (steamId.length !== 17) return await interaction.reply({ content: "Invalid Steam ID length. (must be 17 digits)", ephemeral: true});
         else await interaction.reply({ content: getDota2IdBySteamId(steamId), ephemeral: true});
     }
     else if (commandName === "steamid") {
         const dota2Id = options.getString("id");
-        if (isNaN(dota2Id)) return await interaction.reply({ content: "Error: ID must be a number.", ephemeral: true});
+        if (isNaN(dota2Id)) return await interaction.reply({ content: "ID must be a number.", ephemeral: true});
         else await interaction.reply({ content: getSteamIdByDota2Id(dota2Id), ephemeral: true});
     }
     else if (commandName === "verifyid") {
         await interaction.deferReply({ ephemeral: true});
         const steamId = options.getString("id");
-        if (isNaN(steamId)) return await interaction.editReply("Error: ID must be a number.");
-        if (steamId.length !== 17) return await interaction.editReply("Error: Invalid Steam ID length. (must be 17 digits)");
-        else if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Error: Invalid Steam ID.");
+        if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
+        if (steamId.length !== 17) return await interaction.editReply("Invalid Steam ID length. (must be 17 digits)");
+        else if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
         else await interaction.editReply(`The provided Steam ID is valid. You can view the profile at: https://steamcommunity.com/profiles/${steamId}`);
     }
     else if (interaction.isButton()) {
         const steamId = interaction.message.embeds[0].author.url.replace("https://steamcommunity.com/profiles/", "");
-        if (!await isMatchHistoryPublic(steamId)) await interaction.followUp({ content: "Error: Match history is private.", ephemeral: true });
+        if (!await isMatchHistoryPublic(steamId)) return await interaction.followUp({ content: "Match history is private.", ephemeral: true });
 
         const messageId = interaction.message.id;
         let currentIndex = lastMatchIndex[messageId] || 0;
@@ -1058,10 +1072,7 @@ client.on("interactionCreate", async interaction => {
         // imagine this as undo and redo buttons.
         // this button will browse to the older match history of the player.
         if (interaction.customId === "previous") {
-            if (currentIndex === 100) {
-                await interaction.reply({ content: "Error: No more match history to show.", ephemeral: true });
-                return;
-            }
+            if (currentIndex === 100) return await interaction.reply({ content: "No more match history to show.", ephemeral: true });
             else currentIndex += 1;
 
             await interaction.update({ components: [row] });
@@ -1071,10 +1082,7 @@ client.on("interactionCreate", async interaction => {
         }
         // this button will browse to the newer match history of the player.
         else if (interaction.customId === "next") {
-            if (currentIndex === 0) {
-                await interaction.reply({ content: "Error: No more match history to show.", ephemeral: true });
-                return;
-            }
+            if (currentIndex === 0) return await interaction.reply({ content: "No more match history to show.", ephemeral: true });
             else currentIndex -= 1;
 
             await interaction.update({ components: [row] });
