@@ -3,7 +3,7 @@ const axios = require("axios");
 const bmd = require("discord-bettermarkdown");
 const cron = require("node-cron");
 const { createCanvas, loadImage } = require("canvas");
-require("dotenv").config();
+require("dotenv").config({ path: `${__dirname}/.env` });
 
 // stores the last match id that was sent to the channel.
 // key: matchId, value: [channelId]
@@ -195,12 +195,12 @@ async function getStreaksOf(serverId, streakType) {
 
 // return the most recent match played.
 async function getLastMatch(steamId) {
-    return JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`)).result.matches[0];
+    return JSON.parse(fs.readFileSync(`${__dirname}/data/api_fetched/GMH${steamId}.json`)).result.matches[0];
 }
 
 // return the match data of the index specified from getLast100Match().
 async function getMatchIndex(index, steamId) {
-    return JSON.parse(fs.readFileSync(`./data/api_fetched/GMH${steamId}.json`)).result.matches[index];
+    return JSON.parse(fs.readFileSync(`${__dirname}/data/api_fetched/GMH${steamId}.json`)).result.matches[index];
 }
 
 // return a formatted string of the kda of the team.
@@ -272,7 +272,7 @@ async function getTeamPlayerDetailsOf(team, matchDetails) { // current issue, so
 
 // return the steam avatar of the steam user.
 function getSteamUserAvatar(steamId) {
-    return JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`)).response.players[0].avatar;
+    return JSON.parse(fs.readFileSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`)).response.players[0].avatar;
 }
 
 // return the list of dota 2 heroes.
@@ -310,8 +310,8 @@ function getSteamIdByDota2Id(dota2Id) {
 
 // get player name from (Steam username).
 async function getPlayerName(steamId) {
-    if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`)) await isSteamIdValid(steamId); // write the GetPlayerSummaries data to the file.
-    const playerData = JSON.parse(fs.readFileSync(`./data/api_fetched/GPS${steamId}.json`));
+    if (!fs.existsSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`)) await isSteamIdValid(steamId); // write the GetPlayerSummaries data to the file.
+    const playerData = JSON.parse(fs.readFileSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`));
     return playerData.response.players[0].personaname;
 }
 
@@ -323,7 +323,7 @@ async function getServerName(serverId) {
 // return the last 100 matches played by the user.
 async function isMatchHistoryPublic(steamId) {
     const matchHistory = await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?key=${process.env.STEAM_API_KEY}&account_id=${steamId}&matches_requested=100`);
-    fs.writeFileSync(`./data/api_fetched/GMH${steamId}.json`, JSON.stringify(matchHistory.data, null, 4));
+    fs.writeFileSync(`${__dirname}/data/api_fetched/GMH${steamId}.json`, JSON.stringify(matchHistory.data, null, 4));
     return matchHistory.data.result.status !== 15; // match history is private.
 }
 
@@ -332,47 +332,47 @@ async function isSteamIdValid(steamId){
     if (steamId.length !== 17) return false;
     const response = await axios.get(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${process.env.STEAM_API_KEY}&steamids=${steamId}`);
     if (response.data.response.players.length === 0) return false;
-    fs.writeFileSync(`./data/api_fetched/GPS${steamId}.json`, JSON.stringify(response.data, null, 4));
+    fs.writeFileSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`, JSON.stringify(response.data, null, 4));
     return true;
 }
 
 // check if the steam id is stored at the specified server.
 function isSteamIdRegisteredAt(serverId, steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredSteamIds.includes(steamId) : false;
 }
 
 // check if the steam id is stored in any server.
 function isSteamIdRegistered(steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     return servers.some(obj => obj.registeredSteamIds.includes(steamId));
 }
 
 // check if the channel is registered at the server specified.
 function isChannelRegisteredAt(serverId, channelId, channelType) {
     if (channelType === "") return false;
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredChannelIds[channelType].includes(channelId) : false;
 }
 
 // load the server ids where the steam id is registered.
 function loadWhereSteamIdRegistered(steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const filteredServers = servers.filter(obj => obj.registeredSteamIds.includes(steamId));
     return filteredServers.map(obj => obj.serverName);
 }
 
 // laod all the registered channels of the server specified.
 function loadRegisteredChannelTypesOf(serverId, channelType) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredChannelIds[channelType] : [];
 }
 // return all the registered channels of the server specified in object form.
 function loadAllRegisteredChannelsOf(serverId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     let allChannels = {};
     if (!server) return {};
@@ -385,74 +385,74 @@ function loadAllRegisteredChannelsOf(serverId) {
 
 // load all the registered steam ids of the server specified.
 function loadRegisteredSteamIdsOf(serverId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? server.registeredSteamIds : [];
 }
 
 // load the channel type of the channel id specified.
 function loadChannelTypeOf(serverId, channelId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     return server ? Object.keys(server.registeredChannelIds).find(key => server.registeredChannelIds[key].includes(channelId)) || "" : "";
 }
 
 // initialize the servers.json file and the initial folder structure.
 function initializeFolders() {
-    fs.mkdirSync(`./data/server`, { recursive: true }, () => {});
-    fs.mkdirSync(`./data/api_fetched`, { recursive: true }, () => {});
-    fs.mkdirSync(`./data/banner`, { recursive: true }, () => {});
-    fs.mkdirSync(`./data/variables`, { recursive: true }, () => {});
+    fs.mkdirSync(`${__dirname}/data/server`, { recursive: true }, () => {});
+    fs.mkdirSync(`${__dirname}/data/api_fetched`, { recursive: true }, () => {});
+    fs.mkdirSync(`${__dirname}/data/banner`, { recursive: true }, () => {});
+    fs.mkdirSync(`${__dirname}/data/variables`, { recursive: true }, () => {});
 }
 function initializeFiles() {
-    if (!fs.existsSync(`./data/server/servers.json`)) fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
-    if (!fs.existsSync(`./data/variables/lastMatchIds.json`)) fs.writeFileSync(`./data/variables/lastMatchIds.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/lastMatchIndex.json`)) fs.writeFileSync(`./data/variables/lastMatchIndex.json`, JSON.stringify({}, null, 4));
-    // if (!fs.existsSync(`./data/variables/dota2Heroes.json`)) fs.writeFileSync(`./data/variables/dota2Heroes.json`, JSON.stringify({}, null, 4));
-    // if (!fs.existsSync(`./data/variables/dota2HeroIconsUrl.json`)) fs.writeFileSync(`./data/variables/dota2HeroIconsUrl.json`, JSON.stringify({}, null, 4));
-    // if (!fs.existsSync(`./data/variables/gameModes.json`)) fs.writeFileSync(`./data/variables/gameModes.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/messagePlayerIds.json`)) fs.writeFileSync(`./data/variables/messagePlayerIds.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/playerStreaks.json`)) fs.writeFileSync(`./data/variables/playerStreaks.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/dailyStandings.json`)) fs.writeFileSync(`./data/variables/dailyStandings.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/weeklyStandings.json`)) fs.writeFileSync(`./data/variables/weeklyStandings.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/monthlyStandings.json`)) fs.writeFileSync(`./data/variables/monthlyStandings.json`, JSON.stringify({}, null, 4));
-    if (!fs.existsSync(`./data/variables/yearlyStandings.json`)) fs.writeFileSync(`./data/variables/yearlyStandings.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/server/servers.json`)) fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: []}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/lastMatchIds.json`)) fs.writeFileSync(`${__dirname}/data/variables/lastMatchIds.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/lastMatchIndex.json`)) fs.writeFileSync(`${__dirname}/data/variables/lastMatchIndex.json`, JSON.stringify({}, null, 4));
+    // if (!fs.existsSync(`${__dirname}/data/variables/dota2Heroes.json`)) fs.writeFileSync(`${__dirname}/data/variables/dota2Heroes.json`, JSON.stringify({}, null, 4));
+    // if (!fs.existsSync(`${__dirname}/data/variables/dota2HeroIconsUrl.json`)) fs.writeFileSync(`${__dirname}/data/variables/dota2HeroIconsUrl.json`, JSON.stringify({}, null, 4));
+    // if (!fs.existsSync(`${__dirname}/data/variables/gameModes.json`)) fs.writeFileSync(`${__dirname}/data/variables/gameModes.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/messagePlayerIds.json`)) fs.writeFileSync(`${__dirname}/data/variables/messagePlayerIds.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/playerStreaks.json`)) fs.writeFileSync(`${__dirname}/data/variables/playerStreaks.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/dailyStandings.json`)) fs.writeFileSync(`${__dirname}/data/variables/dailyStandings.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/weeklyStandings.json`)) fs.writeFileSync(`${__dirname}/data/variables/weeklyStandings.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/monthlyStandings.json`)) fs.writeFileSync(`${__dirname}/data/variables/monthlyStandings.json`, JSON.stringify({}, null, 4));
+    if (!fs.existsSync(`${__dirname}/data/variables/yearlyStandings.json`)) fs.writeFileSync(`${__dirname}/data/variables/yearlyStandings.json`, JSON.stringify({}, null, 4));
 }
 
 function saveData() {
-    fs.writeFileSync(`./data/variables/lastMatchIds.json`, JSON.stringify(lastMatchIds, null, 4));
-    fs.writeFileSync(`./data/variables/lastMatchIndex.json`, JSON.stringify(lastMatchIndex, null, 4));
-    // fs.writeFileSync(`./data/variables/dota2Heroes.json`, JSON.stringify(dota2Heroes, null, 4));
-    // fs.writeFileSync(`./data/variables/dota2HeroIconsUrl.json`, JSON.stringify(dota2HeroIconsUrl, null, 4));
-    // fs.writeFileSync(`./data/variables/gameModes.json`, JSON.stringify(gameModes, null, 4));
-    fs.writeFileSync(`./data/variables/messagePlayerIds.json`, JSON.stringify(messagePlayerIds, null, 4));
-    fs.writeFileSync(`./data/variables/playerStreaks.json`, JSON.stringify(playerStreaks, null, 4));
-    fs.writeFileSync(`./data/variables/dailyStandings.json`, JSON.stringify(dailyStandings, null, 4));
-    fs.writeFileSync(`./data/variables/weeklyStandings.json`, JSON.stringify(weeklyStandings, null, 4));
-    fs.writeFileSync(`./data/variables/monthlyStandings.json`, JSON.stringify(monthlyStandings, null, 4));
-    fs.writeFileSync(`./data/variables/yearlyStandings.json`, JSON.stringify(yearlyStandings, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/lastMatchIds.json`, JSON.stringify(lastMatchIds, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/lastMatchIndex.json`, JSON.stringify(lastMatchIndex, null, 4));
+    // fs.writeFileSync(`${__dirname}/data/variables/dota2Heroes.json`, JSON.stringify(dota2Heroes, null, 4));
+    // fs.writeFileSync(`${__dirname}/data/variables/dota2HeroIconsUrl.json`, JSON.stringify(dota2HeroIconsUrl, null, 4));
+    // fs.writeFileSync(`${__dirname}/data/variables/gameModes.json`, JSON.stringify(gameModes, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/messagePlayerIds.json`, JSON.stringify(messagePlayerIds, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/playerStreaks.json`, JSON.stringify(playerStreaks, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/dailyStandings.json`, JSON.stringify(dailyStandings, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/weeklyStandings.json`, JSON.stringify(weeklyStandings, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/monthlyStandings.json`, JSON.stringify(monthlyStandings, null, 4));
+    fs.writeFileSync(`${__dirname}/data/variables/yearlyStandings.json`, JSON.stringify(yearlyStandings, null, 4));
 }
 
 async function loadData() {
     gameModes = await getDota2GameModes();
     dota2Heroes = await getDota2Heroes();
     dota2HeroIconsUrl = await getHeroIcons();
-    lastMatchIds = JSON.parse(fs.readFileSync(`./data/variables/lastMatchIds.json`));
-    lastMatchIndex = JSON.parse(fs.readFileSync(`./data/variables/lastMatchIndex.json`));
-    // dota2Heroes = JSON.parse(fs.readFileSync(`./data/variables/dota2Heroes.json`));
-    // dota2HeroIconsUrl = JSON.parse(fs.readFileSync(`./data/variables/dota2HeroIconsUrl.json`));
-    // gameModes = JSON.parse(fs.readFileSync(`./data/variables/gameModes.json`));
-    messagePlayerIds = JSON.parse(fs.readFileSync(`./data/variables/messagePlayerIds.json`));
-    playerStreaks = JSON.parse(fs.readFileSync(`./data/variables/playerStreaks.json`));
-    dailyStandings = JSON.parse(fs.readFileSync(`./data/variables/dailyStandings.json`));
-    weeklyStandings = JSON.parse(fs.readFileSync(`./data/variables/weeklyStandings.json`));
-    monthlyStandings = JSON.parse(fs.readFileSync(`./data/variables/monthlyStandings.json`));
-    yearlyStandings = JSON.parse(fs.readFileSync(`./data/variables/yearlyStandings.json`));
+    lastMatchIds = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/lastMatchIds.json`));
+    lastMatchIndex = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/lastMatchIndex.json`));
+    // dota2Heroes = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/dota2Heroes.json`));
+    // dota2HeroIconsUrl = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/dota2HeroIconsUrl.json`));
+    // gameModes = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/gameModes.json`));
+    messagePlayerIds = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/messagePlayerIds.json`));
+    playerStreaks = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/playerStreaks.json`));
+    dailyStandings = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/dailyStandings.json`));
+    weeklyStandings = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/weeklyStandings.json`));
+    monthlyStandings = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/monthlyStandings.json`));
+    yearlyStandings = JSON.parse(fs.readFileSync(`${__dirname}/data/variables/yearlyStandings.json`));
 }
 
 // register the steam id and also channels that are registered in the server specified. (if there are any)
 async function registerSteamId(steamId, serverId) {
-    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    let servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
 
     // if the server object doesnt exist, initialize a new one.
@@ -474,20 +474,20 @@ async function registerSteamId(steamId, serverId) {
         servers.push(server);
     }
     server.registeredSteamIds.push(steamId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // remove the registerd steam id of the server specified.
 function removeRegisteredSteamIdOf(serverId, steamId) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     server.registeredSteamIds = server.registeredSteamIds.filter(id => id !== steamId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // register the channel id at the server specified.
 async function registerChannel(channelId, serverId, channelType) {
-    let servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    let servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     let server = servers.find(obj => obj.serverId === serverId);
     if (!server) {
         server = {
@@ -518,19 +518,19 @@ async function registerChannel(channelId, serverId, channelType) {
             server.registeredChannelIds[channelType].push(channelId);
             break;
     }
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 // remove the registered channel of the server specified.
 function removeRegisteredChannelOf(serverId, channelId, channelType) {
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     server.registeredChannelIds[channelType] = server.registeredChannelIds[channelType].filter(id => id !== channelId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 }
 
 async function generateBanner(matchData) {
-    if (fs.existsSync(`./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`)) return `./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
+    if (fs.existsSync(`${__dirname}/data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`)) return `${__dirname}/data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
     const ratio = 1.85;
     const canvas_width = 800;
     const canvas_height = Math.round(canvas_width / ratio);
@@ -656,8 +656,8 @@ async function generateBanner(matchData) {
         context.fillText(player.playerDN, 505 + image_width / 4, 15 + canvas.height / 2 + image_height * i / 4 + spacing + 20 + 3);
     }
     const buffer = canvas.toBuffer("image/png");
-    fs.writeFileSync(`./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`, buffer);
-    return `./data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
+    fs.writeFileSync(`${__dirname}/data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`, buffer);
+    return `${__dirname}/data/banner/BANNER${matchData.matchSummary.gameMatchId}.png`;
 }
 
 // send the game result in discord channels.
@@ -680,7 +680,7 @@ async function sendMessageToChannels(channelId, matchData, messageId=null) {
         attachment.setFile(await generateBanner(matchData));
         attachment.setName("banner.png");
     } catch (error) {
-        attachment.setFile("./data/banner/ERROR_BANNER.png");
+        attachment.setFile("${__dirname}/data/banner/ERROR_BANNER.png");
         attachment.setName("banner.png");
     }
     console.timeEnd("generateBanner")
@@ -732,7 +732,7 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
 
         // fetch the match details from the api.
         const matchDetails = (await axios.get(`http://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=${process.env.STEAM_API_KEY}&match_id=${matchId}`)).data;
-        fs.writeFileSync(`./data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
+        fs.writeFileSync(`${__dirname}/data/api_fetched/GMD${steamId}.json`, JSON.stringify(matchDetails), null, 4);
     
         const matchDuration = matchDetails.result.duration;
         const playerMatchDetails = matchDetails.result.players.find(player => player.account_id === parseInt(getDota2IdBySteamId(steamId)));        
@@ -818,7 +818,7 @@ async function scheduleUpdateDota2Objects() {
 }
 
 async function scheduleSendGameResults() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const steamIds = loadRegisteredSteamIdsOf(serverId);
         if(steamIds.length === 0) return;
         const registeredChannels = loadRegisteredChannelTypesOf(serverId, "match");
@@ -829,7 +829,7 @@ async function scheduleSendGameResults() {
 }
 
 async function scheduleStreaks() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await getStreaksOf(serverId, "all");
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "streaks");
         await Promise.all(registeredChannelIds.map(async (channelId) => {
@@ -840,7 +840,7 @@ async function scheduleStreaks() {
 }
 
 async function scheduleDailyStandings() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await day(serverId);
 
         // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].
@@ -863,7 +863,7 @@ async function scheduleDailyStandings() {
 }
 
 async function scheduleWeeklyStandings() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await week(serverId);
 
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
@@ -885,7 +885,7 @@ async function scheduleWeeklyStandings() {
 }
 
 async function scheduleMonthlyStandings() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await month(serverId);
 
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
@@ -907,7 +907,7 @@ async function scheduleMonthlyStandings() {
 }
 
 async function scheduleYearlyStandings() {
-    for (let serverId of JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await year(serverId);
 
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) if (yearlyStandings[serverId] && yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
@@ -961,7 +961,7 @@ client.once("ready", async () => {
     // check if the channels that are registered in server.json are still valid.
     await Promise.all(client.guilds.cache.map(async (guild) => {
         const serverId = guild.id;
-        const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+        const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
         const server = servers.find(obj => obj.serverId === serverId);
         if (!server) return;
 
@@ -969,7 +969,7 @@ client.once("ready", async () => {
         let registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
         for (let key in registeredChannelIds) registeredChannelIds[key] = registeredChannelIds[key].filter(channelId => client.channels.cache.has(channelId));
         server.registeredChannelIds = registeredChannelIds;
-        fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+        fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
     }));
 
     // update nescesarry dota 2 objects every 24 hours.
@@ -1000,11 +1000,11 @@ client.on("messageDelete", async (message) => {
 
 client.on("guildDelete", async (guild) => {
     const serverId = guild.id;
-    const servers = JSON.parse(fs.readFileSync(`./data/server/servers.json`)).servers;
+    const servers = JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers;
     const server = servers.find(obj => obj.serverId === serverId);
     if (!server) return;
     servers = servers.filter(obj => obj.serverId !== serverId);
-    fs.writeFileSync(`./data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
+    fs.writeFileSync(`${__dirname}/data/server/servers.json`, JSON.stringify({servers: servers}, null, 4));
 });
 
 client.on("channelDelete", async (channel) => {
@@ -1029,7 +1029,7 @@ client.on("interactionCreate", async interaction => {
             let steamId = options.getString("id");
             if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // convert the dota 2 id to steam id.
-            if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) {
+            if (!fs.existsSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) {
                 await interaction.editReply("Invalid Steam ID.");
                 return;
             }
@@ -1047,7 +1047,7 @@ client.on("interactionCreate", async interaction => {
             if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
 
             if (steamId.length !== 17) steamId = getSteamIdByDota2Id(steamId); // conver the dota 2 id to steam id.
-            if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
+            if (!fs.existsSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
             else if (!isSteamIdRegisteredAt(interaction.guild.id, steamId)) await interaction.editReply("Steam ID not registered on this server.");
             else {
                 removeRegisteredSteamIdOf(serverId, steamId);
@@ -1209,7 +1209,7 @@ client.on("interactionCreate", async interaction => {
         const steamId = options.getString("id");
         if (isNaN(steamId)) return await interaction.editReply("ID must be a number.");
         if (steamId.length !== 17) return await interaction.editReply("Invalid Steam ID length. (must be 17 digits)");
-        else if (!fs.existsSync(`./data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
+        else if (!fs.existsSync(`${__dirname}/data/api_fetched/GPS${steamId}.json`) && !await isSteamIdValid(steamId)) await interaction.editReply("Invalid Steam ID.");
         else await interaction.editReply(`The provided Steam ID is valid. You can view the profile at: https://steamcommunity.com/profiles/${steamId}`);
     }
     else if (interaction.isButton()) {
