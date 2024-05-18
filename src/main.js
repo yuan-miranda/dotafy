@@ -56,7 +56,7 @@ let yearlyStandings = {};
 // };
 function sortUsers(standing) {
     let users = Object.keys(standing);
-
+    
     // prioritize win - lose difference 
     users.sort((a, b) => { return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose); });
     return users;
@@ -825,7 +825,6 @@ async function scheduleSendGameResults() {
         if (registeredChannels.length === 0) return;
 
         for (const steamId of steamIds) await sendGameResult(steamId, registeredChannels, isDuplicate=false);
-        dailyStandings[serverId] = sortUsers(dailyStandings[serverId]);
     }
 }
 
