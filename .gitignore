@@ -1,4 +1,3 @@
 src/.env
-test/.env
-node_modules
 src/data
+node_modules
