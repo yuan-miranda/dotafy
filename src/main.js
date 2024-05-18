@@ -41,12 +41,6 @@ let messagePlayerIds = {};
 let playerStreaks = {};
 
 // list of daily, weekly, monthly, and yearly standings.
-let dailyStandings = {};
-let weeklyStandings = {};
-let monthlyStandings = {};
-let yearlyStandings = {};
-
-// list of win/lose.
 // dailyStanding = {
 //     standing: {
 //         serverId: {
@@ -54,11 +48,20 @@ let yearlyStandings = {};
 //         }, ...
 //     }
 // };
+let dailyStandings = {};
+let weeklyStandings = {};
+let monthlyStandings = {};
+let yearlyStandings = {};
+
 function sortUsers(standing) {
     let users = Object.keys(standing);
     
-    // prioritize win - lose difference 
-    users.sort((a, b) => { return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose); });
+    // prioritize win count first then win - lose difference if they both have the same win count.
+    users.sort((a, b) => {
+        let diff = standing[b].win - standing[a].win;
+        if (diff !== 0) return diff;
+        return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose);
+    });
     return users;
 }
 
@@ -71,19 +74,19 @@ async function day(serverId) {
     let bottomPlayers = "";
 
     for (let steamId of sortedUsers) {
-        if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
 
         let player = dailyStandings[serverId][steamId];
+        let playerName = (await getPlayerName(steamId)).substring(0, 32);
         let playerWin = player.win;
         let playerLose = player.lose;
-        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}+${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}-${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(9)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}+${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}${(playerWin - playerLose).toString().padEnd(6)}${playerName}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(6)}${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.white;
     }
     if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
-    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+    return `\`\`\`ansi\n${"W".padEnd(5)}${"L".padEnd(5)}${"GAP".padEnd(6)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the weekly standing of the server specified.
@@ -95,19 +98,19 @@ async function week(serverId) {
     let bottomPlayers = "";
 
     for (let steamId of sortedUsers) {
-        if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0};
 
         let player = weeklyStandings[serverId][steamId];
+        let playerName = (await getPlayerName(steamId)).substring(0, 32);
         let playerWin = player.win;
         let playerLose = player.lose;
-        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}+${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}-${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(9)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}+${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}${(playerWin - playerLose).toString().padEnd(6)}${playerName}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(6)}${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.white;
     }
     if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
-    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+    return `\`\`\`ansi\n${"W".padEnd(5)}${"L".padEnd(5)}${"GAP".padEnd(6)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the monthly standing of the server specified.
@@ -119,19 +122,19 @@ async function month(serverId) {
     let bottomPlayers = "";
 
     for (let steamId of sortedUsers) {
-        if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0};
     
         let player = monthlyStandings[serverId][steamId];
+        let playerName = (await getPlayerName(steamId)).substring(0, 32);
         let playerWin = player.win;
         let playerLose = player.lose;
-        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}+${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}-${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(9)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}+${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}${(playerWin - playerLose).toString().padEnd(6)}${playerName}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(6)}${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.white;
     }
     if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
-    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+    return `\`\`\`ansi\n${"W".padEnd(5)}${"L".padEnd(5)}${"GAP".padEnd(6)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
 // return the yearly standing of the server specified.
@@ -143,30 +146,35 @@ async function year(serverId) {
     let bottomPlayers = "";
 
     for (let steamId of sortedUsers) {
-        if (!yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        if (!yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0};
 
         let player = yearlyStandings[serverId][steamId];
+        let playerName = (await getPlayerName(steamId)).substring(0, 32);
         let playerWin = player.win;
         let playerLose = player.lose;
-        let playerWinLoseRatio = player.winLoseRatio;
 
-        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}+${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.green;
-        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(8)}-${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.red;
-        else unchangedPlayers += `${playerWin.toString().padEnd(8)}${playerLose.toString().padEnd(9)}${(playerWin + playerLose).toString().padEnd(12)}${playerWinLoseRatio.toFixed(2).toString().padEnd(16)}${await getPlayerName(steamId)}\n`.white;
+        if (playerWin > playerLose) topPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}+${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.green;
+        else if (playerWin < playerLose) bottomPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(5)}${(playerWin - playerLose).toString().padEnd(6)}${playerName}\n`.red;
+        else unchangedPlayers += `${playerWin.toString().padEnd(5)}${playerLose.toString().padEnd(6)}${(playerWin - playerLose).toString().padEnd(5)}${playerName}\n`.white;
     }
     if (topPlayers === "" && unchangedPlayers === "" && bottomPlayers === "") return "No data found.";
-    return `\`\`\`ansi\n${"Win".padEnd(8)}${"Lose".padEnd(8)}${"W-L gap".padEnd(12)}${"W/L ratio".padEnd(16)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
+    return `\`\`\`ansi\n${"W".padEnd(5)}${"L".padEnd(5)}${"GAP".padEnd(6)}Player name\n${topPlayers}${unchangedPlayers}${bottomPlayers}\n\`\`\``;
 }
 
-function getTime() {
+function getDate() {
     let date = new Date();
     let year = date.getFullYear();
     let month = (date.getMonth() + 1).toString().padStart(2, '0');
     let day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getTime() {
+    let date = new Date();
     let hour = date.getHours().toString().padStart(2, '0');
     let minute = date.getMinutes().toString().padStart(2, '0');
     let second = date.getSeconds().toString().padStart(2, '0');
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    return `${hour}:${minute}:${second}`;
 }
 
 async function getStreaksOf(serverId, streakType) {
@@ -791,7 +799,7 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         // add the win/lose to the daily standings. (this is not invoked when using /match for obvious reasons)
         if (!isDuplicate) {
             if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
-            if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
             if (!playerStreaks[serverId]) playerStreaks[serverId] = {};
             if (!playerStreaks[serverId][steamId]) playerStreaks[serverId][steamId] = {win: 0, lose: 0};
             if (playerTeamIsWin) {
@@ -804,7 +812,6 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
                 playerStreaks[serverId][steamId].win = 0;
                 playerStreaks[serverId][steamId].lose += 1;
             }
-            dailyStandings[serverId][steamId].winLoseRatio = dailyStandings[serverId][steamId].win / (dailyStandings[serverId][steamId].lose || 1);
         }
         if (messageId) await sendMessageToChannels(channelId, matchData, messageId);
         else await sendMessageToChannels(channelId, matchData);
@@ -846,18 +853,21 @@ async function scheduleDailyStandings() {
         // initialize the weeklyStandings object if it doesnt exist, then pass the dailyStandings[serverId].
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
             if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
-            if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0};
             if (dailyStandings[serverId] && dailyStandings[serverId][steamId]) {
                 weeklyStandings[serverId][steamId].win += dailyStandings[serverId][steamId].win;
                 weeklyStandings[serverId][steamId].lose += dailyStandings[serverId][steamId].lose;
-                weeklyStandings[serverId][steamId].winLoseRatio = weeklyStandings[serverId][steamId].win / (weeklyStandings[serverId][steamId].lose || 1);
-                dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                dailyStandings[serverId][steamId] = {win: 0, lose: 0};
             }
         }
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "day");
         await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const embed = new EmbedBuilder()
+                .setColor("White")
+                .setTitle(`Daily Standings ${getDate()}`)
+                .setDescription(messageContent)
             const channel = await client.channels.fetch(channelId);
-            await channel.send(messageContent);
+            await channel.send({ embeds: [embed]});
         }));
     }
 }
@@ -868,12 +878,11 @@ async function scheduleWeeklyStandings() {
 
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
             if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
-            if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0};
             if (weeklyStandings[serverId] && weeklyStandings[serverId][steamId]) {
                 monthlyStandings[serverId][steamId].win += weeklyStandings[serverId][steamId].win;
                 monthlyStandings[serverId][steamId].lose += weeklyStandings[serverId][steamId].lose;
-                monthlyStandings[serverId][steamId].winLoseRatio = monthlyStandings[serverId][steamId].win / (monthlyStandings[serverId][steamId].lose || 1);
-                weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                weeklyStandings[serverId][steamId] = {win: 0, lose: 0};
             }
         }
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "week");
@@ -890,12 +899,11 @@ async function scheduleMonthlyStandings() {
 
         for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
             if (!yearlyStandings[serverId]) yearlyStandings[serverId] = {};
-            if (!yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+            if (!yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0};
             if (monthlyStandings[serverId] && monthlyStandings[serverId][steamId]) {
                 yearlyStandings[serverId][steamId].win += monthlyStandings[serverId][steamId].win;
                 yearlyStandings[serverId][steamId].lose += monthlyStandings[serverId][steamId].lose;
-                yearlyStandings[serverId][steamId].winLoseRatio = yearlyStandings[serverId][steamId].win / (yearlyStandings[serverId][steamId].lose || 1);
-                monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+                monthlyStandings[serverId][steamId] = {win: 0, lose: 0};
             }
         }
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "week");
@@ -910,7 +918,7 @@ async function scheduleYearlyStandings() {
     for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
         const messageContent = await year(serverId);
 
-        for (let steamId of loadRegisteredSteamIdsOf(serverId)) if (yearlyStandings[serverId] && yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
+        for (let steamId of loadRegisteredSteamIdsOf(serverId)) if (yearlyStandings[serverId] && yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0};
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "year");
         await Promise.all(registeredChannelIds.map(async (channelId) => {
             const channel = await client.channels.fetch(channelId);
@@ -920,23 +928,25 @@ async function scheduleYearlyStandings() {
 }
 
 function scheduleSaveData() {
-    console.log(`${getTime()} - auto saving data...`)
+    console.log(`${getDate()} ${getTime()} - auto saving data...`)
     saveData();
-    console.log(`${getTime()} - auto data saved.`)
+    console.log(`${getDate()} ${getTime()} - auto data saved.`)
 }
 
 async function startHandler() {
-    console.log(`${getTime()} - loading data...`)
+    console.log(`${getDate()} ${getTime()} - loading data...`)
     initializeFolders();
     initializeFiles();
     await loadData();
-    console.log(`${getTime()} - data loaded.`)
+    console.log(`${getDate()} ${getTime()} - data loaded.`)
 }
+
 function exitHandler() {
-    console.log(`${getTime()} - saving data...`)
+    console.log(`${getDate()} ${getTime()} - saving data...`)
     saveData();
-    console.log(`${getTime()} - data saved.`)
+    console.log(`${getDate()} ${getTime()} - data saved.`)
 }
+
 process.on("exit", exitHandler); // exit the process
 process.on("SIGINT", () => { exitHandler(); process.exit(); }); // ctrl + c
 process.on("SIGUSR1", () => { exitHandler(); process.exit(); }); // kill -s USR1 <pid>
@@ -955,7 +965,7 @@ const client = new Client({
 });
 
 client.once("ready", async () => {
-    console.log(`${getTime()} - ${client.user.tag} is online.`);
+    console.log(`${getDate()} ${getTime()} - ${client.user.tag} is online.`);
     await startHandler();
 
     // check if the channels that are registered in server.json are still valid.
@@ -989,7 +999,7 @@ client.once("ready", async () => {
     cron.schedule("0 0 1 * *", scheduleMonthlyStandings, { timezone: "Asia/Manila" }); // 30 days
     cron.schedule("0 0 1 1 *", scheduleYearlyStandings, { timezone: "Asia/Manila" }); // 365 days
 
-    cron.schedule("*/5 * * * *", scheduleSaveData, { timezone: "Asia/Manila" }); // 5 minutes
+    cron.schedule("*/1 * * * *", scheduleSaveData, { timezone: "Asia/Manila" }); // 1 minutes
 });
 
 client.on("messageDelete", async (message) => {
@@ -1076,10 +1086,16 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "streaks") {
         await interaction.deferReply({ ephemeral: true});
+        let messageContent = "";
         const streakType = options.getString("type") || "all";
-        if (streakType === "win") await interaction.editReply(await getStreaksOf(serverId, "win"));
-        else if (streakType === "lose") await interaction.editReply(await getStreaksOf(serverId, "lose"));
-        else interaction.editReply(await getStreaksOf(serverId, "all"));
+        if (streakType === "win") messageContent = await getStreaksOf(serverId, "win");
+        else if (streakType === "lose") messageContent = await getStreaksOf(serverId, "lose");
+        else messageContent = await getStreaksOf(serverId, "all");
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle("Streaks Leaderboards")
+            .setDescription(messageContent);
+        await interaction.editReply({ embeds: [embed]});
     }
     else if (commandName === "channels") {
         await interaction.deferReply({ ephemeral: true});
@@ -1179,19 +1195,35 @@ client.on("interactionCreate", async interaction => {
     // the rest are auto commands.
     else if (commandName === "day") {
         await interaction.deferReply({ ephemeral: true});
-        await interaction.editReply(await day(serverId));
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle(`Daily Standings ${getDate()}`)
+            .setDescription(await day(serverId));
+        await interaction.editReply({ embeds: [embed]});
     }
     else if (commandName === "week") {
         await interaction.deferReply({ ephemeral: true});
-        await interaction.editReply(await week(serverId));
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle(`Weekly Standings ${getDate()}`)
+            .setDescription(await week(serverId));
+        await interaction.editReply({ embeds: [embed]});
     }
     else if (commandName === "month") {
         await interaction.deferReply({ ephemeral: true});
-        await interaction.editReply(await month(serverId));
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle(`Monthly Standings ${getDate()}`)
+            .setDescription(await month(serverId));
+        await interaction.editReply({ embeds: [embed]});
     }
     else if (commandName === "year") {
         await interaction.deferReply({ ephemeral: true});
-        await interaction.editReply(await year(serverId));
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle(`Yearly Standings ${getDate()}`)
+            .setDescription(await year(serverId));
+        await interaction.editReply({ embeds: [embed]});
     }
     else if (commandName === "dota2id") {
         const steamId = options.getString("id");
