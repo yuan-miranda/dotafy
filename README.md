@@ -15,7 +15,7 @@ List all the registered channels on this server.
 Set the channel for logging messages.
 > Must be on the channel you want to set. (admin only)
 ```
-/setchannel type <all | match | day | week | month>
+/setchannel type <match | day | week | month>
 ```
 Remove the channel for logging messages.
 > Must be on the channel you want to remove. (admin only)
