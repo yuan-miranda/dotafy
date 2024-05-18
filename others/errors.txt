@@ -14,6 +14,7 @@ SOLVED (i think):
     Still using interval as a timer for auto standings
     Has no exit save data/clean up
     the formatStanding() might now be formatting correctly
+    auto all command is useless, remove it
 
 ISSUES:
 Update game result image (dota like design)

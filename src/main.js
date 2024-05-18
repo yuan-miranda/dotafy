@@ -470,7 +470,6 @@ async function registerSteamId(steamId, serverId) {
             serverName: await getServerName(serverId),
             registeredSteamIds: [],
             registeredChannelIds: {
-                all: [],
                 match: [],
                 streaks: [],
                 day: [],
@@ -503,7 +502,6 @@ async function registerChannel(channelId, serverId, channelType) {
             serverName: await getServerName(serverId),
             registeredSteamIds: [],
             registeredChannelIds: {
-                all: [],
                 match: [],
                 streaks: [],
                 day: [],
@@ -515,7 +513,6 @@ async function registerChannel(channelId, serverId, channelType) {
         servers.push(server);
     }
     switch (channelType) {
-        case "all":
         case "match":
         case "streaks":
         case "day":
@@ -1102,14 +1099,13 @@ client.on("interactionCreate", async interaction => {
         const registeredChannelIds = loadAllRegisteredChannelsOf(serverId);
         if (Object.keys(registeredChannelIds).length === 0) return await interaction.editReply("No channels registered on this server.");
 
-        const allChannels = registeredChannelIds["all"].map(id => client.channels.cache.get(id).name);
         const matchChannels = registeredChannelIds["match"].map(id => client.channels.cache.get(id).name);
         const streaksChannels = registeredChannelIds["streaks"].map(id => client.channels.cache.get(id).name);
         const dayChannels = registeredChannelIds["day"].map(id => client.channels.cache.get(id).name);
         const weekChannels = registeredChannelIds["week"].map(id => client.channels.cache.get(id).name);
         const monthChannels = registeredChannelIds["month"].map(id => client.channels.cache.get(id).name);
         const yearChannels = registeredChannelIds["year"].map(id => client.channels.cache.get(id).name);
-        const channelNames = `\`\`\`${"All".padEnd(9)}${allChannels.join(", ")}\n${"Match".padEnd(9)}${matchChannels.join(", ")}\n${"Streaks".padEnd(9)}${streaksChannels.join(", ")}\n${"Day".padEnd(9)}${dayChannels.join(", ")}\n${"Week".padEnd(9)}${weekChannels.join(", ")}\n${"Month".padEnd(9)}${monthChannels.join(", ")}\n${"Year".padEnd(9)}${yearChannels.join(", ")}\`\`\``;
+        const channelNames = `\`\`\`${"Match".padEnd(9)}${matchChannels.join(", ")}\n${"Streaks".padEnd(9)}${streaksChannels.join(", ")}\n${"Day".padEnd(9)}${dayChannels.join(", ")}\n${"Week".padEnd(9)}${weekChannels.join(", ")}\n${"Month".padEnd(9)}${monthChannels.join(", ")}\n${"Year".padEnd(9)}${yearChannels.join(", ")}\`\`\``;
         await interaction.editReply(channelNames);
     }
     else if (commandName === "setchannel") {
@@ -1119,7 +1115,6 @@ client.on("interactionCreate", async interaction => {
         if (isChannelRegisteredAt(serverId, channelId, channelType)) return await interaction.editReply("Channel already registered.");
         
         switch (channelType) {
-            case "all":
             case "match":
             case "streaks":
             case "day":
@@ -1150,7 +1145,7 @@ client.on("interactionCreate", async interaction => {
         \t\tSends a help message on how to use the bot.
         \n**/channels**
         \t\tList all the registered channels on this server.
-        \n**/setchannel type <all | match | day | week | month>**
+        \n**/setchannel type <match | day | week | month>**
         \t\tSet the channel for logging messages. Must be on the channel you want to set. (admin only)
         \n**/unsetchannel**
         \t\tRemove the channel for logging messages. Must be on the channel you want to remove. (admin only)

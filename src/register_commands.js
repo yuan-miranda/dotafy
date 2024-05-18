@@ -24,10 +24,6 @@ const commands = [
                 required: true,
                 choices: [
                     {
-                        name: 'All results (match, auto /day, /week, /month)',
-                        value: 'all'
-                    },
-                    {
                         name: 'Match results',
                         value: 'match'
                     },
@@ -146,11 +142,6 @@ const commands = [
                 ]
             }
         ]
-    },
-    {
-        name: 'all',
-        description: '(Currently not working)',
-        options: []
     },
     {
         name: 'match',
