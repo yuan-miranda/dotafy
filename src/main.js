@@ -54,28 +54,23 @@ let yearlyStandings = {};
 //         }, ...
 //     }
 // };
-function formatStanding(standing) {
+function sortUsers(standing) {
     let users = Object.keys(standing);
 
     // prioritize win - lose difference 
     users.sort((a, b) => { return (standing[b].win - standing[b].lose) - (standing[a].win - standing[a].lose); });
-
-    // convert the sorted array back to an object
-    standing = users.reduce((obj, user) => {
-        obj[user] = standing[user];
-        return obj;
-    }, {});
-    return standing;
+    return users;
 }
 
 // retun the daily standing of the server specified.
 async function day(serverId) {
     if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
+    const sortedUsers = sortUsers(dailyStandings[serverId]);
     let topPlayers = "";
     let unchangedPlayers = "";
     let bottomPlayers = "";
 
-    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+    for (let steamId of sortedUsers) {
         if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
         let player = dailyStandings[serverId][steamId];
@@ -94,11 +89,12 @@ async function day(serverId) {
 // return the weekly standing of the server specified.
 async function week(serverId) {
     if (!weeklyStandings[serverId]) weeklyStandings[serverId] = {};
+    let sortedUsers = sortUsers(weeklyStandings[serverId]);
     let topPlayers = "";
     let unchangedPlayers = "";
     let bottomPlayers = "";
 
-    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+    for (let steamId of sortedUsers) {
         if (!weeklyStandings[serverId][steamId]) weeklyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
         let player = weeklyStandings[serverId][steamId];
@@ -117,11 +113,12 @@ async function week(serverId) {
 // return the monthly standing of the server specified.
 async function month(serverId) {
     if (!monthlyStandings[serverId]) monthlyStandings[serverId] = {};
+    let sortedUsers = sortUsers(monthlyStandings[serverId]);
     let topPlayers = "";
     let unchangedPlayers = "";
     let bottomPlayers = "";
 
-    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+    for (let steamId of sortedUsers) {
         if (!monthlyStandings[serverId][steamId]) monthlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
     
         let player = monthlyStandings[serverId][steamId];
@@ -140,11 +137,12 @@ async function month(serverId) {
 // return the yearly standing of the server specified.
 async function year(serverId) {
     if (!yearlyStandings[serverId]) yearlyStandings[serverId] = {};
+    let sortedUsers = sortUsers(yearlyStandings[serverId]);
     let topPlayers = "";
     let unchangedPlayers = "";
     let bottomPlayers = "";
 
-    for (let steamId of loadRegisteredSteamIdsOf(serverId)) {
+    for (let steamId of sortedUsers) {
         if (!yearlyStandings[serverId][steamId]) yearlyStandings[serverId][steamId] = {win: 0, lose: 0, winLoseRatio: 0};
 
         let player = yearlyStandings[serverId][steamId];
@@ -827,7 +825,7 @@ async function scheduleSendGameResults() {
         if (registeredChannels.length === 0) return;
 
         for (const steamId of steamIds) await sendGameResult(steamId, registeredChannels, isDuplicate=false);
-        dailyStandings[serverId] = formatStanding(dailyStandings[serverId]);
+        dailyStandings[serverId] = sortUsers(dailyStandings[serverId]);
     }
 }
 
