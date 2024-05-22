@@ -230,7 +230,7 @@ async function getLeaderboardsOf(serverId) {
     return leaderboard;
 }
 
-async function getDailyStats(serverId) {
+async function getDailyStatsOf(serverId) {
     if (!dailyStats[serverId]) dailyStats[serverId] = {};
     let users = Object.keys(dailyStats[serverId]);
     const topKills = users.sort((a, b) => dailyStats[serverId][b].kills - dailyStats[serverId][a].kills).slice(0, 3);
@@ -1189,7 +1189,7 @@ client.on("interactionCreate", async interaction => {
     }
     else if (commandName === "dailystats") {
         await interaction.deferReply({ ephemeral: true});
-        const messageContent = await getDailyStats(serverId);
+        const messageContent = await getDailyStatsOf(serverId);
         const embed = new EmbedBuilder()
             .setColor("White")
             .setTitle("Daily Statistics")
