@@ -40,6 +40,18 @@ let messagePlayerIds = {};
 // };
 let playerStreaks = {};
 
+// similar to dailyStandings, but this is used to get the KDA of the players.
+// dailyStats = {
+//     serverId: {
+//         steamId: {
+//             kills: 0,
+//             deaths: 0,
+//             assists: 0
+//         }, ...
+//     }, ...
+// }
+let dailyStats = {};
+
 // list of daily, weekly, monthly, and yearly standings.
 // dailyStanding = {
 //     standing: {
@@ -179,11 +191,11 @@ function getTime() {
 
 async function getStreaksOf(serverId, streakType) {
     if (!playerStreaks[serverId]) playerStreaks[serverId] = {};
-    const steamIds = loadRegisteredSteamIdsOf(serverId);
+    const sortedUsers = sortUsers(playerStreaks[serverId]);
     let winStreakPlayers = "";
     let loseStreakPlayers = "";
 
-    for (let steamId of steamIds){
+    for (let steamId of sortedUsers){
         if (!playerStreaks[serverId][steamId]) playerStreaks[serverId][steamId] = {win: 0, lose: 0};
 
         let playerName = await getPlayerName(steamId);
@@ -193,12 +205,59 @@ async function getStreaksOf(serverId, streakType) {
 
         if (playerWin >= 3) winStreakPlayers += `+${playerWin.toString().padEnd(8)}${playerName}\n`.green;
         else if (playerLose >= 3) loseStreakPlayers += `-${playerLose.toString().padEnd(8)}${playerName}\n`.red;
-
     }
-    if (streakType === "win" && winStreakPlayers !== "") return `\`\`\`ansi\nWin streaks\n${winStreakPlayers}\n\`\`\``;
-    else if (streakType === "lose" && loseStreakPlayers !== "") return `\`\`\`ansi\nLose streaks\n${loseStreakPlayers}\n\`\`\``;
-    else if (streakType === "all" && (winStreakPlayers !== "" || loseStreakPlayers !== "")) return `\`\`\`ansi\nAll streaks\n${winStreakPlayers}${loseStreakPlayers}\n\`\`\``;
+    if (streakType === "win" && winStreakPlayers !== "") return `**Win streaks**\`\`\`ansi\n${winStreakPlayers}\n\`\`\``;
+    else if (streakType === "lose" && loseStreakPlayers !== "") return `**Lose streaks**\`\`\`ansi\n\n${loseStreakPlayers}\n\`\`\``;
+    else if (streakType === "all" && (winStreakPlayers !== "" || loseStreakPlayers !== "")) return `**Win streaks**\`\`\`ansi\n${winStreakPlayers === "" ? "No data found." : winStreakPlayers}\`\`\`\n**Lose streaks**\`\`\`ansi\n${loseStreakPlayers === "" ? "No data found." : loseStreakPlayers}\n\`\`\``;
     else return "No data found.";
+}
+
+async function getLeaderboardsOf(serverId) {
+    const steamIds = loadRegisteredSteamIdsOf(serverId);
+    const server = client.guilds.cache.get(serverId);
+    let users = {};
+    let leaderboard = "";
+
+    for (let steamId of steamIds) users[steamId] = (await axios.get(`https://api.opendota.com/api/players/${getDota2IdBySteamId(steamId)}`)).data.rank_tier;
+    
+    let sortedUserTiers = Object.keys(users);
+    sortedUserTiers.sort((a, b) => users[b] - users[a]);
+
+    for (let steamId of sortedUserTiers) {
+        const rank_emoji = users[steamId] === null ? server.emojis.cache.find(emoji => emoji.name === "seasonalrank00") : server.emojis.cache.find(emoji => emoji.name === `seasonalrank${users[steamId]}`);
+        leaderboard += `${rank_emoji} ${await getPlayerName(steamId)}\n`;
+    }
+    return leaderboard;
+}
+
+async function getDailyStats(serverId) {
+    if (!dailyStats[serverId]) dailyStats[serverId] = {};
+    let users = Object.keys(dailyStats[serverId]);
+    const topKills = users.sort((a, b) => dailyStats[serverId][b].kills - dailyStats[serverId][a].kills).slice(0, 3);
+    const topDeaths = users.sort((a, b) => dailyStats[serverId][b].deaths - dailyStats[serverId][a].deaths).slice(0, 3);
+    const topAssists = users.sort((a, b) => dailyStats[serverId][b].assists - dailyStats[serverId][a].assists).slice(0, 3);
+
+    let topKillsString = "";
+    for (let steamId of topKills) {
+        const playerName = await getPlayerName(steamId);
+        const playerKills = dailyStats[serverId][steamId].kills;
+        topKillsString += `${playerKills.toString().padEnd(5)}${playerName}\n`;
+    }
+
+    let topDeathsString = "";
+    for (let steamId of topDeaths) {
+        const playerName = await getPlayerName(steamId);
+        const playerDeaths = dailyStats[serverId][steamId].deaths;
+        topDeathsString += `${playerDeaths.toString().padEnd(5)}${playerName}\n`;
+    }
+
+    let topAssistsString = "";
+    for (let steamId of topAssists) {
+        const playerName = await getPlayerName(steamId);
+        const playerAssists = dailyStats[serverId][steamId].assists;
+        topAssistsString += `${playerAssists.toString().padEnd(5)}${playerName}\n`;
+    }
+    return `\`\`\`ansi\nCombat Kings ⚔️\n${topKillsString === "" ? "No data found." : topKillsString}\nAssist Generals 🤝\n${topAssistsString === "" ? "No data found." : topAssistsString}\nSuicide Squads ☠️\n${topDeathsString === "" ? "No data found." : topDeathsString}\`\`\``;
 }
 
 // return the most recent match played.
@@ -260,7 +319,9 @@ async function getTeamPlayerDetailsOf(team, matchDetails) { // current issue, so
             playerName: player.account_id !== 4294967295 ? await getPlayerName(getSteamIdByDota2Id(player.account_id)) : "Anonymous",
             playerHeroLevel: player.level.toString(),
             playerHeroName: heroName,
-            playerKDA: `${player.kills}/${player.deaths}/${player.assists}`,
+            playerKills: player.kills,
+            playerDeaths: player.deaths,
+            playerAssists: player.assists,
             playerNet: player.net_worth,
             playerLH: player.last_hits,
             playerDN: player.denies,
@@ -472,6 +533,7 @@ async function registerSteamId(steamId, serverId) {
             registeredChannelIds: {
                 match: [],
                 streaks: [],
+                stats: [],
                 day: [],
                 week: [],
                 month: [],
@@ -504,6 +566,7 @@ async function registerChannel(channelId, serverId, channelType) {
             registeredChannelIds: {
                 match: [],
                 streaks: [],
+                stats: [],
                 day: [],
                 week: [],
                 month: [],
@@ -515,6 +578,7 @@ async function registerChannel(channelId, serverId, channelType) {
     switch (channelType) {
         case "match":
         case "streaks":
+        case "stats":
         case "day":
         case "week":
         case "month":
@@ -761,7 +825,7 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
                 playerName: player.playerName,
                 playerHeroLevel: player.playerHeroLevel,
                 playerHeroName: player.playerHeroName,
-                playerKDA: player.playerKDA,
+                playerKDA: `${player.playerKills}/${player.playerDeaths}/${player.playerAssists}`,
                 playerNet: player.playerNet,
                 playerLH: player.playerLH,
                 playerDN: player.playerDN,
@@ -797,8 +861,17 @@ async function sendGameResult(steamId, registeredChannels, isDuplicate=true, rec
         if (!isDuplicate) {
             if (!dailyStandings[serverId]) dailyStandings[serverId] = {};
             if (!dailyStandings[serverId][steamId]) dailyStandings[serverId][steamId] = {win: 0, lose: 0};
+
             if (!playerStreaks[serverId]) playerStreaks[serverId] = {};
             if (!playerStreaks[serverId][steamId]) playerStreaks[serverId][steamId] = {win: 0, lose: 0};
+
+            if (!dailyStats[serverId]) dailyStats[serverId] = {};
+            if (!dailyStats[serverId][steamId]) dailyStats[serverId][steamId] = {kills: 0, deaths: 0, assists: 0};
+
+            dailyStats[serverId][steamId].kills += player.playerKills;
+            dailyStats[serverId][steamId].deaths += player.playerDeaths;
+            dailyStats[serverId][steamId].assists += player.playerAssists;
+
             if (playerTeamIsWin) {
                 dailyStandings[serverId][steamId].win += 1;
                 playerStreaks[serverId][steamId].win += 1;
@@ -837,8 +910,27 @@ async function scheduleStreaks() {
         const messageContent = await getStreaksOf(serverId, "all");
         const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "streaks");
         await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const embed = new EmbedBuilder()
+                .setColor("White")
+                .setTitle(`Streaks Leaderboards ${getDate()}`)
+                .setDescription(messageContent);
             const channel = await client.channels.fetch(channelId);
-            await channel.send(messageContent);
+            await channel.send({ embeds: [embed]});
+        }));
+    }
+}
+
+async function scheduleDailyStats() {
+    for (let serverId of JSON.parse(fs.readFileSync(`${__dirname}/data/server/servers.json`)).servers.map(obj => obj.serverId)) {
+        const messageContent = await getDailyStatsOf(serverId);
+        const registeredChannelIds = loadRegisteredChannelTypesOf(serverId, "stats");
+        await Promise.all(registeredChannelIds.map(async (channelId) => {
+            const embed = new EmbedBuilder()
+                .setColor("White")
+                .setTitle(`Daily Stats ${getDate()}`)
+                .setDescription(messageContent);
+            const channel = await client.channels.fetch(channelId);
+            await channel.send({ embeds: [embed]});
         }));
     }
 }
@@ -989,6 +1081,8 @@ client.once("ready", async () => {
 
     // auto streaks.
     cron.schedule("0 0 * * *", scheduleStreaks, { timezone: "Asia/Manila" }); // 24 hours
+    
+    cron.schedule("0 0 * * *", scheduleDailyStats, { timezone: "Asia/Manila" }); // 24 hours
 
     // auto commands for day, week, month
     cron.schedule("0 0 * * *", scheduleDailyStandings, { timezone: "Asia/Manila" }); // 24 hours
@@ -1081,6 +1175,27 @@ client.on("interactionCreate", async interaction => {
             await interaction.editReply(`\`\`\`${"Dota 2 Id".padEnd(dota2IdPadding)}${"Steam Id".padEnd(steamIdPadding)}Player name\n${message}\`\`\``);
         }
     }
+    else if (commandName === "leaderboards") {
+        await interaction.deferReply();
+
+        // might not work on all servers as it needs to have a reserved discord emoji space for the
+        // rank medals emojis.
+        let messageContent = await getLeaderboardsOf(serverId);
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle("Rank Leaderboards")
+            .setDescription(messageContent);
+        await interaction.editReply({ embeds: [embed]});
+    }
+    else if (commandName === "dailystats") {
+        await interaction.deferReply({ ephemeral: true});
+        const messageContent = await getDailyStats(serverId);
+        const embed = new EmbedBuilder()
+            .setColor("White")
+            .setTitle("Daily Statistics")
+            .setDescription(messageContent);
+        await interaction.editReply({ embeds: [embed]});
+    }
     else if (commandName === "streaks") {
         await interaction.deferReply({ ephemeral: true});
         let messageContent = "";
@@ -1101,11 +1216,12 @@ client.on("interactionCreate", async interaction => {
 
         const matchChannels = registeredChannelIds["match"].map(id => client.channels.cache.get(id).name);
         const streaksChannels = registeredChannelIds["streaks"].map(id => client.channels.cache.get(id).name);
+        const statsChannels = registeredChannelIds["stats"].map(id => client.channels.cache.get(id).name);
         const dayChannels = registeredChannelIds["day"].map(id => client.channels.cache.get(id).name);
         const weekChannels = registeredChannelIds["week"].map(id => client.channels.cache.get(id).name);
         const monthChannels = registeredChannelIds["month"].map(id => client.channels.cache.get(id).name);
         const yearChannels = registeredChannelIds["year"].map(id => client.channels.cache.get(id).name);
-        const channelNames = `\`\`\`${"Match".padEnd(9)}${matchChannels.join(", ")}\n${"Streaks".padEnd(9)}${streaksChannels.join(", ")}\n${"Day".padEnd(9)}${dayChannels.join(", ")}\n${"Week".padEnd(9)}${weekChannels.join(", ")}\n${"Month".padEnd(9)}${monthChannels.join(", ")}\n${"Year".padEnd(9)}${yearChannels.join(", ")}\`\`\``;
+        const channelNames = `\`\`\`${"Match".padEnd(9)}${matchChannels.join(", ")}\n${"Streaks".padEnd(9)}${streaksChannels.join(", ")}\n${"Daily Stats".padEnd(9)}${statsChannels.join(", ")}\n${"Day".padEnd(9)}${dayChannels.join(", ")}\n${"Week".padEnd(9)}${weekChannels.join(", ")}\n${"Month".padEnd(9)}${monthChannels.join(", ")}\n${"Year".padEnd(9)}${yearChannels.join(", ")}\`\`\``;
         await interaction.editReply(channelNames);
     }
     else if (commandName === "setchannel") {
@@ -1117,6 +1233,7 @@ client.on("interactionCreate", async interaction => {
         switch (channelType) {
             case "match":
             case "streaks":
+            case "stats":
             case "day":
             case "week":
             case "month":
@@ -1145,7 +1262,7 @@ client.on("interactionCreate", async interaction => {
         \t\tSends a help message on how to use the bot.
         \n**/channels**
         \t\tList all the registered channels on this server.
-        \n**/setchannel type <match | day | week | month>**
+        \n**/setchannel type <match | streaks | stats | day | week | month | year>**
         \t\tSet the channel for logging messages. Must be on the channel you want to set. (admin only)
         \n**/unsetchannel**
         \t\tRemove the channel for logging messages. Must be on the channel you want to remove. (admin only)
@@ -1158,6 +1275,8 @@ client.on("interactionCreate", async interaction => {
         \n**/match <id>**
         \t\tGet the most recent match of the user.
         \n**/streaks [<win | lose | all>]**
+        \t\tGet the daily stats of the server.
+        \n**/dailystats**
         \t\tTo enter the streak rank, user must be >= 3 of win/lose streak. Default value without the type will output both win and lose streak.
         \n**/day**
         \t\tGet the daily standings on the server.

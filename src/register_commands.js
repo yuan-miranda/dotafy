@@ -32,6 +32,10 @@ const commands = [
                         value: 'streaks'
                     },
                     {
+                        name: 'auto /dailystats',
+                        value: 'stats'
+                    },
+                    {
                         name: 'auto /day',
                         value: 'day'
                     },
@@ -116,6 +120,16 @@ const commands = [
                 ]
             }
         ]
+    },
+    {
+        name: 'leaderboards',
+        description: 'Get the leaderboards of the server.',
+        options: []
+    },
+    {
+        name: 'dailystats',
+        description: 'Get the daily stats of the server.',
+        options: []
     },
     {
         name: 'streaks',
