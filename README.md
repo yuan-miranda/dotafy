@@ -1,3 +1,5 @@
+# DISCONTINUED, WILL BE REVISED IN THE FUTURE.
+
 ## Dota 2 Discord Bot (dotafy)
 A discord bot that uses Steam Web API and OpenDota API to fetch Dota 2 game results, and performance.
 > [src/main.js](https://github.com/yuan-miranda/dotafy/blob/main/src/main.js) source code of the bot.<br>
