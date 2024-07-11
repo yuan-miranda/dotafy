@@ -82,7 +82,7 @@ Check if the steam id is valid.
 ```
 git clone https://github.com/yuan-miranda/dotafy.git
 ```
-2. Download the following modules inside the `dissh` directory:
+2. Download the following modules inside the `dotafy` directory:
 ```
 npm install dotenv canvas axios node-cron discord-bettermarkdown@latest discord.js -y
 ```
